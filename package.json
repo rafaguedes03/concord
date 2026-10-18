@@ -1,0 +1,49 @@
+{
+  "name": "concord",
+  "version": "1.5.1",
+  "description": "Concord - Chamadas com IA DeepFilterNet3, Transmissão Fluida e Chat em Tempo Real",
+  "main": "src/main/index.js",
+  "scripts": {
+    "dev": "vite",
+    "dev:electron": "electron .",
+    "start:server": "node server/server.js",
+    "build": "vite build",
+    "build:exe": "vite build && electron-builder --win --dir"
+  },
+  "build": {
+    "appId": "com.concord.app",
+    "productName": "Concord",
+    "win": {
+      "target": "dir"
+    },
+    "forceCodeSigning": false,
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "src/main/**/*"
+    ]
+  },
+  "dependencies": {
+    "@workadventure/noise-suppression": "^0.2.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "livekit-client": "^2.23.0",
+    "livekit-server-sdk": "^2.19.1",
+    "lucide-react": "^1.16.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "vite": "^6.0.7"
+  }
+}

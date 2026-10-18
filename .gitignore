@@ -1,0 +1,18 @@
+# Dependências
+node_modules/
+package-lock.json
+
+# Builds e temporários
+dist/
+dist-electron/
+build-temp/
+*.log
+
+# Arquivos binários pesados e executáveis
+server/public/*.asar
+server/public/*.zip
+*.exe
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
