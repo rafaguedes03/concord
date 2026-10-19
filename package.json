@@ -14,7 +14,8 @@
     "appId": "com.concord.app",
     "productName": "Concord",
     "win": {
-      "target": "dir"
+      "target": "dir",
+      "icon": "build/icon.ico"
     },
     "forceCodeSigning": false,
     "directories": {

@@ -35,7 +35,7 @@ export default function VoiceDock({ channel, usersCount, currentUser, onToggleMi
               ? 'bg-error-container/60 text-error'
               : 'bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface'
           }`}
-          title={currentUser?.isDeafened ? 'Ativar Áudio' : 'Desativar Áudio (Ensurdecer)'}
+          title={currentUser?.isDeafened ? 'Ativar Som' : 'Desativar Som'}
         >
           <Headphones size={15} />
         </button>

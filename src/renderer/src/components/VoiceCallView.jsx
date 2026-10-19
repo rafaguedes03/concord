@@ -404,7 +404,7 @@ export default function VoiceCallView({
 
       {/* Barra de Controles Inferior */}
       <div className="px-6 py-4 bg-surface-container-low/90 backdrop-blur-xl border-t border-outline-variant/40 flex items-center justify-between gap-4 z-30">
-        {/* Mute / Ensurdecer */}
+        {/* Mute / Desativar Som */}
         <div className="flex items-center gap-2">
           <button
             onClick={onToggleMic}
@@ -426,10 +426,10 @@ export default function VoiceCallView({
                 ? 'bg-error-container text-error'
                 : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
             }`}
-            title={currentUser?.isDeafened ? 'Ativar Áudio do Fone' : 'Ensurdecer (Desativar Fone)'}
+            title={currentUser?.isDeafened ? 'Ativar Som' : 'Desativar Som'}
           >
             <Headphones size={16} />
-            <span>{currentUser?.isDeafened ? 'Ensurdecido' : 'Ensurdecer'}</span>
+            <span>{currentUser?.isDeafened ? 'Som Desativado' : 'Desativar Som'}</span>
           </button>
         </div>
 

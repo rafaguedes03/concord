@@ -1,5 +1,6 @@
 import React from 'react';
 import { Minus, Square, X } from 'lucide-react';
+import appIcon from '../assets/app-icon.png';
 
 export default function TitleBar() {
   const isElectron = window.electronAPI?.isElectron;
@@ -14,6 +15,7 @@ export default function TitleBar() {
       className="h-7 bg-surface-container-lowest flex items-center justify-between px-3 select-none border-b border-outline-variant/40 text-on-surface-variant text-xs font-semibold z-50 cursor-default"
     >
       <div className="flex items-center space-x-2" style={{ WebkitAppRegion: 'drag' }}>
+        <img src={appIcon} alt="" className="w-4 h-4" draggable={false} />
         <span className="font-headline text-primary glow-text-primary font-extrabold text-sm tracking-widest">CONCORD</span>
         <span className="font-label text-on-surface-variant/60 font-medium text-[10px] uppercase tracking-widest">// Voz IA & Transmissão</span>
       </div>
@@ -39,7 +41,7 @@ export default function TitleBar() {
           <button
             onClick={handleClose}
             style={{ WebkitAppRegion: 'no-drag' }}
-            title="Fechar"
+            title="Fechar (continua na área de notificação)"
             className="w-7 h-7 flex items-center justify-center hover:bg-error hover:text-on-error transition cursor-pointer"
           >
             <X size={14} />

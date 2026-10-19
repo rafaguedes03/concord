@@ -23,10 +23,10 @@ export default function UserTile({
     }
   };
 
-  // Badge de estado no topo (prioridade: transmitindo > ensurdecido > mutado > falando)
+  // Badge de estado no topo (prioridade: transmitindo > som desativado > mutado > falando)
   let badge = null;
   if (user.isScreenSharing) badge = { label: 'Ao Vivo', cls: 'bg-primary text-on-primary', icon: <Tv size={11} /> };
-  else if (user.isDeafened) badge = { label: 'Ensurdecido', cls: 'bg-error-container text-error', icon: <Headphones size={11} /> };
+  else if (user.isDeafened) badge = { label: 'Som Desativado', cls: 'bg-error-container text-error', icon: <Headphones size={11} /> };
   else if (user.isMuted) badge = { label: 'Mutado', cls: 'bg-error-container text-error', icon: <MicOff size={11} /> };
   else if (isSpeaking) badge = { label: 'Falando', cls: 'bg-secondary-container/50 text-secondary', icon: <AudioLines size={11} className="animate-pulse" /> };
 

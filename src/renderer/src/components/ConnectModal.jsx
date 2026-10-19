@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Server, ArrowRight, ShieldCheck, HelpCircle } from 'lucide-react';
+import logoMark from '../assets/logo-mark.png';
 
 export default function ConnectModal({ isOpen, initialNick = '', initialServer = '', onConnect }) {
   const [nickname, setNickname] = useState(initialNick || '');
@@ -34,7 +35,7 @@ export default function ConnectModal({ isOpen, initialNick = '', initialServer =
         {/* Banner Superior */}
         <div className="h-24 bg-surface-container-lowest bg-grid border-b border-primary/30 flex items-center justify-center relative">
           <div className="w-16 h-16 rounded-xl bg-surface-container-high flex items-center justify-center absolute -bottom-8 ring-4 ring-surface-container glow-pink">
-            <span className="text-primary glow-text-primary font-headline font-extrabold text-3xl tracking-tighter">C</span>
+            <img src={logoMark} alt="Concord" className="w-11 h-11 object-contain" draggable={false} />
           </div>
         </div>
 

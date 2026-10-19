@@ -1,15 +1,16 @@
 import React from 'react';
 import { Plus, Server, Wifi, WifiOff } from 'lucide-react';
+import logoMark from '../assets/logo-mark.png';
 
 export default function ServerSidebar({ connected, serverAddress, onOpenConnectModal }) {
   return (
     <div className="w-20 bg-surface-container-lowest flex flex-col items-center py-4 gap-3 select-none border-r border-outline-variant/40">
       {/* Logo Concord / Início */}
       <div
-        className="relative w-12 h-12 rounded-xl bg-surface-container-high hover:bg-primary-container hover:text-on-primary-container text-primary flex items-center justify-center cursor-pointer transition-all duration-300 glow-pink"
+        className="relative w-12 h-12 rounded-xl bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center cursor-pointer transition-all duration-300 glow-pink"
         title="Concord - Início"
       >
-        <span className="font-headline font-extrabold text-2xl tracking-tighter">C</span>
+        <img src={logoMark} alt="Concord" className="w-9 h-9 object-contain pointer-events-none" draggable={false} />
         {/* Marcador lateral neon */}
         <span className="absolute -left-4 w-1.5 h-6 bg-primary rounded-r-full shadow-[0_0_8px_#ff2d78]"></span>
       </div>

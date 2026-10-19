@@ -301,7 +301,7 @@ export default function ChannelSidebar({
                 ? 'bg-error-container/60 text-error'
                 : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
             }`}
-            title={currentUser?.isDeafened ? 'Ativar Áudio' : 'Desativar Áudio (Ensurdecer)'}
+            title={currentUser?.isDeafened ? 'Ativar Som' : 'Desativar Som'}
           >
             <Headphones size={15} />
           </button>
