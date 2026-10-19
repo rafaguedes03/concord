@@ -1,9 +1,12 @@
+const path = require('path');
+// Carrega server/.env pelo caminho do arquivo (o servidor é iniciado da raiz do projeto)
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const fs = require('fs');
-const path = require('path');
 const { spawn } = require('child_process');
 const { AccessToken } = require('livekit-server-sdk');
 
@@ -203,7 +206,7 @@ app.get('/', (req, res) => {
     <h1>Concord</h1>
     <div class="status-badge">
       <span class="status-dot"></span>
-      SERVIDOR ONLINE (45.184.120.69:3002)
+      SERVIDOR ONLINE (45.184.120.69:${PORT})
     </div>
     <p>Converse com seus amigos com IA DeepFilterNet3, transmissão 60FPS fluida, envio de imagens no chat e zero burocracia.</p>
     

@@ -1,7 +1,7 @@
 # Dependências
 node_modules/
 package-lock.json
-
+server/.env
 # Builds e temporários
 dist/
 dist-electron/
