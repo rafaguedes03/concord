@@ -10,36 +10,76 @@
   }
 }
 
-/* Custom Scrollbar estilo Discord */
+/* Glows neon (Neon Tokyo) */
+.glow-pink {
+  box-shadow: 0 0 16px rgba(255, 45, 120, 0.35);
+}
+.glow-cyan {
+  box-shadow: 0 0 16px rgba(0, 255, 204, 0.35);
+}
+.hover-glow-pink:hover {
+  box-shadow: 0 0 16px rgba(255, 45, 120, 0.4);
+}
+.hover-glow-cyan:hover {
+  box-shadow: 0 0 16px rgba(0, 255, 204, 0.4);
+}
+.glow-text-primary {
+  text-shadow: 0 0 8px rgba(255, 45, 120, 0.8);
+}
+.glow-text-secondary {
+  text-shadow: 0 0 8px rgba(0, 255, 204, 0.8);
+}
+
+/* Halo de quem está falando: cintila sem girar */
+@keyframes halo-shimmer {
+  0%, 100% { opacity: 0.35; transform: scale(0.96); }
+  20% { opacity: 0.75; transform: scale(1.02); }
+  35% { opacity: 0.5; }
+  55% { opacity: 0.85; transform: scale(1.04); }
+  75% { opacity: 0.45; transform: scale(0.99); }
+}
+.halo-shimmer {
+  animation: halo-shimmer 3s ease-in-out infinite;
+}
+
+/* Textura de grade sutil para fundos */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(48, 40, 64, 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(48, 40, 64, 0.25) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Scrollbar fina */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #2b2d31;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1a1b1e;
+  background: #28283e;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #111214;
+  background: #302840;
 }
 
 /* Animação de fala / Voice activity ring */
 @keyframes speaking-pulse {
   0% {
-    box-shadow: 0 0 0 0px rgba(35, 165, 90, 0.8);
+    box-shadow: 0 0 0 0px rgba(0, 255, 204, 0.8);
   }
   70% {
-    box-shadow: 0 0 0 6px rgba(35, 165, 90, 0);
+    box-shadow: 0 0 0 6px rgba(0, 255, 204, 0);
   }
   100% {
-    box-shadow: 0 0 0 0px rgba(35, 165, 90, 0);
+    box-shadow: 0 0 0 0px rgba(0, 255, 204, 0);
   }
 }
 
 .speaking-ring {
-  border: 3px solid #23a55a !important;
+  border: 3px solid #00ffcc !important;
   animation: speaking-pulse 1.2s infinite ease-out;
 }

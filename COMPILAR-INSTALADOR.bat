@@ -8,7 +8,7 @@ echo ========================================================
 echo.
 echo Compilando codigo em installer\Program.cs...
 
-"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /target:winexe /optimize+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:Microsoft.CSharp.dll /out:Instalador-Discord.exe installer\Program.cs
+"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /target:winexe /win32icon:build\icon.ico /optimize+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:Microsoft.CSharp.dll /out:Instalador-Discord.exe installer\Program.cs
 
 if %errorlevel% equ 0 (
     echo.

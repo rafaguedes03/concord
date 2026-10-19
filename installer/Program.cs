@@ -6,6 +6,7 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
+using System.Reflection;
 
 namespace ConcordInstaller
 {
@@ -34,6 +35,11 @@ namespace ConcordInstaller
         private string serverUrl = "http://45.184.120.69:3002";
         private string tempZipPath;
         private string installDir;
+
+        // Nome do recurso embutido pelo COMPILAR-INSTALADOR-OFFLINE.bat (/resource:...,app.zip).
+        // Se existir, o instalador é auto contido e não baixa nada do servidor.
+        private const string EmbeddedZipName = "app.zip";
+        private bool isEmbedded;
 
         public InstallerForm()
         {
@@ -133,6 +139,17 @@ namespace ConcordInstaller
         {
             try
             {
+                using (Stream embedded = Assembly.GetExecutingAssembly().GetManifestResourceStream(EmbeddedZipName))
+                {
+                    if (embedded != null)
+                    {
+                        isEmbedded = true;
+                        await CopyEmbeddedZip(embedded);
+                        await ExtractAndSetup();
+                        return;
+                    }
+                }
+
                 lblStatus.Text = "Conectando ao servidor...";
                 lblDetails.Text = "Baixando o pacote do Concord de " + serverUrl + "...";
 
@@ -175,6 +192,28 @@ namespace ConcordInstaller
             catch (Exception ex)
             {
                 HandleError(ex);
+            }
+        }
+
+        private async Task CopyEmbeddedZip(Stream source)
+        {
+            lblStatus.Text = "Preparando arquivos...";
+            long total = source.Length;
+            byte[] buffer = new byte[1024 * 1024];
+            long copied = 0;
+            int read;
+
+            using (FileStream dest = File.Create(tempZipPath))
+            {
+                while ((read = await source.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    await dest.WriteAsync(buffer, 0, read);
+                    copied += read;
+                    int pct = (int)(copied * 100 / total);
+                    progressBar.Value = pct;
+                    lblStatus.Text = string.Format("Preparando arquivos: {0}%", pct);
+                    lblDetails.Text = string.Format("{0:0.0} MB de {1:0.0} MB...", copied / 1024.0 / 1024, total / 1024.0 / 1024);
+                }
             }
         }
 
@@ -279,6 +318,21 @@ namespace ConcordInstaller
         {
             progressBar.Style = ProgressBarStyle.Continuous;
             progressBar.Value = 0;
+
+            if (isEmbedded)
+            {
+                lblStatus.Text = "Erro na instalação!";
+                lblDetails.Text = ex.Message;
+                MessageBox.Show(
+                    "Não foi possível instalar o Concord:\n\n" + ex.Message,
+                    "Erro - Concord",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+                btnAction.Text = "Fechar";
+                return;
+            }
+
             lblStatus.Text = "Erro ao conectar ao servidor!";
             lblDetails.Text = "Não foi possível baixar de " + serverUrl;
 

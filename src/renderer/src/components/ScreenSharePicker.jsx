@@ -57,30 +57,30 @@ export default function ScreenSharePicker({ isOpen, onClose, onSelectSource }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#313338] w-full max-w-xl rounded-lg shadow-2xl border border-[#2b2d31] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="bg-surface-container w-full max-w-xl rounded-xl border border-primary/30 shadow-[inset_0_0_12px_rgba(255,45,120,0.1),0_20px_50px_rgba(0,0,0,0.6)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Cabeçalho */}
-        <div className="p-4 border-b border-[#2b2d31] flex items-center justify-between">
+        <div className="p-4 border-b border-outline-variant/40 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Monitor className="text-[#5865F2]" size={22} />
-            <h2 className="text-white font-bold text-lg">Transmitir Sua Tela</h2>
+            <Monitor className="text-primary" size={22} />
+            <h2 className="text-on-surface font-headline font-bold text-lg">Transmitir Sua Tela</h2>
           </div>
           <button
             onClick={onClose}
-            className="text-discord-muted hover:text-white transition p-1 rounded"
+            className="text-on-surface-variant hover:text-on-surface transition p-1 rounded"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Seleção de Qualidade e FPS (720p30, 720p60 e 1080p60) */}
-        <div className="bg-[#2b2d31] p-3 mx-4 mt-3 rounded-lg border border-[#35373c] space-y-2">
+        <div className="bg-surface-container-low p-3 mx-4 mt-3 rounded-lg border border-outline-variant/40 space-y-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-1.5 text-xs font-bold text-discord-text uppercase tracking-wider">
-              <Zap size={14} className="text-discord-green" />
+            <div className="flex items-center space-x-1.5 text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest">
+              <Zap size={14} className="text-secondary" />
               <span>Resolução e Taxa de Quadros (FPS)</span>
             </div>
-            <span className="text-[11px] text-discord-muted">
+            <span className="text-[11px] text-on-surface-variant">
               Transmissão fluida mesmo em segundo plano
             </span>
           </div>
@@ -90,14 +90,14 @@ export default function ScreenSharePicker({ isOpen, onClose, onSelectSource }) {
             <button
               type="button"
               onClick={() => setSelectedPreset('720p30')}
-              className={`p-2.5 rounded-md border text-center transition flex flex-col items-center space-y-1 ${
+              className={`p-2.5 rounded-lg border text-center transition flex flex-col items-center space-y-1 ${
                 selectedPreset === '720p30'
-                  ? 'bg-[#5865F2]/20 border-[#5865F2] text-white shadow'
-                  : 'bg-[#1e1f22] border-[#3f4147] text-discord-muted hover:text-white hover:bg-[#35373c]'
+                  ? 'bg-secondary-container/30 border-secondary text-on-surface shadow-[0_0_12px_rgba(0,255,204,0.2)]'
+                  : 'bg-surface-container-lowest border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
               }`}
             >
               <span className="text-xs font-bold">720p</span>
-              <span className="text-[10px] bg-[#111214] px-1.5 py-0.5 rounded font-mono">30 FPS</span>
+              <span className="text-[10px] bg-surface-container-lowest px-1.5 py-0.5 rounded font-mono">30 FPS</span>
               <span className="text-[9px] opacity-75">Economia</span>
             </button>
 
@@ -105,32 +105,32 @@ export default function ScreenSharePicker({ isOpen, onClose, onSelectSource }) {
             <button
               type="button"
               onClick={() => setSelectedPreset('720p60')}
-              className={`p-2.5 rounded-md border text-center transition flex flex-col items-center space-y-1 relative ${
+              className={`p-2.5 rounded-lg border text-center transition flex flex-col items-center space-y-1 relative ${
                 selectedPreset === '720p60'
-                  ? 'bg-[#5865F2]/20 border-[#5865F2] text-white shadow'
-                  : 'bg-[#1e1f22] border-[#3f4147] text-discord-muted hover:text-white hover:bg-[#35373c]'
+                  ? 'bg-secondary-container/30 border-secondary text-on-surface shadow-[0_0_12px_rgba(0,255,204,0.2)]'
+                  : 'bg-surface-container-lowest border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
               }`}
             >
               <span className="text-xs font-bold">720p</span>
-              <span className="text-[10px] bg-discord-green/20 text-discord-green px-1.5 py-0.5 rounded font-mono font-bold">60 FPS</span>
-              <span className="text-[9px] text-discord-green">Fluidez (Recomendado)</span>
+              <span className="text-[10px] bg-secondary/20 text-secondary px-1.5 py-0.5 rounded font-mono font-bold">60 FPS</span>
+              <span className="text-[9px] text-secondary">Fluidez (Recomendado)</span>
             </button>
 
             {/* Opção 3: 1080p 60 FPS (Full HD) */}
             <button
               type="button"
               onClick={() => setSelectedPreset('1080p60')}
-              className={`p-2.5 rounded-md border text-center transition flex flex-col items-center space-y-1 ${
+              className={`p-2.5 rounded-lg border text-center transition flex flex-col items-center space-y-1 ${
                 selectedPreset === '1080p60'
-                  ? 'bg-[#5865F2]/20 border-[#5865F2] text-white shadow'
-                  : 'bg-[#1e1f22] border-[#3f4147] text-discord-muted hover:text-white hover:bg-[#35373c]'
+                  ? 'bg-secondary-container/30 border-secondary text-on-surface shadow-[0_0_12px_rgba(0,255,204,0.2)]'
+                  : 'bg-surface-container-lowest border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
               }`}
             >
               <div className="flex items-center space-x-1">
-                <Sparkles size={11} className="text-[#FEE75C]" />
-                <span className="text-xs font-bold text-white">1080p</span>
+                <Sparkles size={11} className="text-tertiary" />
+                <span className="text-xs font-bold text-on-surface">1080p</span>
               </div>
-              <span className="text-[10px] bg-[#5865F2]/30 text-[#5865F2] px-1.5 py-0.5 rounded font-mono font-bold">60 FPS</span>
+              <span className="text-[10px] bg-primary/30 text-primary px-1.5 py-0.5 rounded font-mono font-bold">60 FPS</span>
               <span className="text-[9px] opacity-75">Full HD Máxima Nitidez</span>
             </button>
           </div>
@@ -138,13 +138,13 @@ export default function ScreenSharePicker({ isOpen, onClose, onSelectSource }) {
 
         {/* Abas Telas / Janelas (se Electron) */}
         {sources.length > 0 && (
-          <div className="flex border-b border-[#2b2d31] px-4 mt-3 space-x-4 text-sm font-semibold text-discord-muted">
+          <div className="flex border-b border-outline-variant/40 px-4 mt-3 space-x-4 text-sm font-semibold text-on-surface-variant">
             <button
               onClick={() => handleTabChange('screens')}
               className={`pb-2.5 flex items-center space-x-2 border-b-2 transition ${
                 activeTab === 'screens'
-                  ? 'border-[#5865F2] text-white'
-                  : 'border-transparent hover:text-white'
+                  ? 'border-secondary text-secondary'
+                  : 'border-transparent hover:text-on-surface'
               }`}
             >
               <Monitor size={16} />
@@ -154,8 +154,8 @@ export default function ScreenSharePicker({ isOpen, onClose, onSelectSource }) {
               onClick={() => handleTabChange('windows')}
               className={`pb-2.5 flex items-center space-x-2 border-b-2 transition ${
                 activeTab === 'windows'
-                  ? 'border-[#5865F2] text-white'
-                  : 'border-transparent hover:text-white'
+                  ? 'border-secondary text-secondary'
+                  : 'border-transparent hover:text-on-surface'
               }`}
             >
               <AppWindow size={16} />
@@ -174,25 +174,25 @@ export default function ScreenSharePicker({ isOpen, onClose, onSelectSource }) {
                   <div
                     key={src.id}
                     onClick={() => setSelectedSourceId(src.id)}
-                    className={`p-2 rounded-lg cursor-pointer transition border-2 flex flex-col items-center bg-[#2b2d31] hover:bg-[#35373c] ${
+                    className={`p-2 rounded-lg cursor-pointer transition border-2 flex flex-col items-center bg-surface-container-low hover:bg-surface-container-high ${
                       isSelected
-                        ? 'border-[#5865F2] ring-2 ring-[#5865F2]/40'
-                        : 'border-[#1e1f22]'
+                        ? 'border-secondary ring-2 ring-secondary/30'
+                        : 'border-outline-variant/40'
                     }`}
                   >
-                    <div className="w-full h-28 bg-black rounded overflow-hidden flex items-center justify-center relative">
+                    <div className="w-full h-28 bg-surface-container-lowest rounded overflow-hidden flex items-center justify-center relative">
                       <img
                         src={src.thumbnail}
                         alt={src.name}
                         className="w-full h-full object-contain"
                       />
                       {isSelected && (
-                        <div className="absolute top-1 right-1 bg-[#5865F2] rounded-full p-0.5">
-                          <CheckCircle size={14} className="text-white" />
+                        <div className="absolute top-1 right-1 bg-secondary rounded-full p-0.5">
+                          <CheckCircle size={14} className="text-on-secondary" />
                         </div>
                       )}
                     </div>
-                    <span className="text-xs text-white font-medium truncate w-full text-center mt-2 px-1">
+                    <span className="text-xs text-on-surface font-medium truncate w-full text-center mt-2 px-1">
                       {src.name}
                     </span>
                   </div>
@@ -200,39 +200,39 @@ export default function ScreenSharePicker({ isOpen, onClose, onSelectSource }) {
               })}
             </div>
           ) : (
-            <div className="text-center py-8 text-discord-muted text-sm">
+            <div className="text-center py-8 text-on-surface-variant text-sm">
               <p>O navegador solicitará a tela ou janela que você deseja compartilhar.</p>
             </div>
           )}
         </div>
 
         {/* Opção de Áudio do Sistema */}
-        <div className="px-4 py-2 border-t border-[#2b2d31] bg-[#2b2d31]/40 flex items-center justify-between text-xs text-discord-text">
+        <div className="px-4 py-2 border-t border-outline-variant/40 bg-surface-container-low/40 flex items-center justify-between text-xs text-on-surface">
           <label className="flex items-center space-x-2 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={withAudio}
               onChange={(e) => setWithAudio(e.target.checked)}
-              className="w-4 h-4 accent-[#5865F2] cursor-pointer"
+              className="w-4 h-4 accent-secondary cursor-pointer"
             />
             <span>Compartilhar áudio do sistema/jogos</span>
           </label>
-          <span className="text-[11px] text-discord-muted">
+          <span className="text-[11px] text-on-surface-variant">
             {activeTab === 'screens' ? 'Disponível em Telas Inteiras' : 'Apenas vídeo em janelas'}
           </span>
         </div>
 
         {/* Rodapé de Ações */}
-        <div className="bg-[#2b2d31] px-4 py-3 border-t border-[#1e1f22] flex items-center justify-end space-x-3">
+        <div className="bg-surface-container-lowest px-4 py-3 border-t border-outline-variant/40 flex items-center justify-end space-x-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded text-sm font-semibold text-white hover:underline transition"
+            className="px-4 py-2 rounded-lg text-sm font-headline font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition"
           >
             Cancelar
           </button>
           <button
             onClick={handleConfirm}
-            className="px-5 py-2 bg-[#5865F2] hover:bg-[#4752c4] text-white rounded text-sm font-semibold transition shadow flex items-center space-x-1.5"
+            className="px-5 py-2 bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container hover-glow-pink rounded-lg font-headline text-sm font-semibold transition shadow flex items-center space-x-1.5"
           >
             <span>Iniciar Transmissão</span>
           </button>

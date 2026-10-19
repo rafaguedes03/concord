@@ -14,7 +14,8 @@
     "appId": "com.concord.app",
     "productName": "Concord",
     "win": {
-      "target": "dir"
+      "target": "dir",
+      "icon": "build/icon.ico"
     },
     "forceCodeSigning": false,
     "directories": {
@@ -28,6 +29,7 @@
   "dependencies": {
     "@workadventure/noise-suppression": "^0.2.0",
     "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "livekit-client": "^2.23.0",
     "livekit-server-sdk": "^2.19.1",

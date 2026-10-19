@@ -3,6 +3,7 @@ import TitleBar from './components/TitleBar';
 import ServerSidebar from './components/ServerSidebar';
 import ChannelSidebar from './components/ChannelSidebar';
 import VoiceCallView from './components/VoiceCallView';
+import VoiceDock from './components/VoiceDock';
 import ChatArea from './components/ChatArea';
 import ConnectModal from './components/ConnectModal';
 import CreateChannelModal from './components/CreateChannelModal';
@@ -11,7 +12,7 @@ import SettingsModal from './components/SettingsModal';
 
 import { socketService } from './services/socket';
 import { LivekitEngine } from './services/livekitEngine';
-import { VoiceEngine } from './services/voiceEngine';
+import { VoiceEngine, normalizeNoiseMode } from './services/voiceEngine';
 import { ScreenEngine } from './services/screenEngine';
 import { soundEffects } from './services/soundEffects';
 
@@ -32,17 +33,17 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-screen w-screen bg-[#1e1f22] text-white flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-16 h-16 rounded-full bg-[#ed4245] flex items-center justify-center text-white text-2xl font-bold mb-4 shadow-lg">
+        <div className="h-screen w-screen bg-background bg-grid text-on-surface flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-16 h-16 rounded-xl bg-error-container text-error flex items-center justify-center text-2xl font-headline font-bold mb-4 shadow-[0_0_16px_rgba(255,68,68,0.35)]">
             !
           </div>
-          <h2 className="text-xl font-bold mb-2">Ops! Ocorreu um pequeno erro de interface</h2>
-          <p className="text-discord-muted text-sm max-w-md mb-6">
+          <h2 className="text-xl font-headline font-bold mb-2">Ops! Ocorreu um pequeno erro de interface</h2>
+          <p className="text-on-surface-variant text-sm max-w-md mb-6">
             O aplicativo detectou um erro temporário e recuperou a sessão para você continuar conversando.
           </p>
           <button
             onClick={() => this.setState({ hasError: false })}
-            className="bg-[#5865F2] hover:bg-[#4752c4] text-white px-6 py-2.5 rounded font-bold text-sm transition shadow"
+            className="bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container hover-glow-pink px-6 py-2.5 rounded-lg font-headline font-bold text-sm transition"
           >
             Recarregar Interface
           </button>
@@ -72,7 +73,7 @@ export default function App() {
   const savedNick = localStorage.getItem('dc_nickname') || '';
   const rawSavedServer = localStorage.getItem('dc_server') || '45.184.120.69:3002';
   const savedServer = rawSavedServer.replace(':3001', ':3002');
-  const savedNoiseMode = localStorage.getItem('dc_noise_mode') || 'deepfilter';
+  const savedNoiseMode = normalizeNoiseMode(localStorage.getItem('dc_noise_mode'));
   const savedNoiseEnabled = localStorage.getItem('dc_noise_enabled') !== 'false';
   const savedNoiseThreshold = parseInt(localStorage.getItem('dc_noise_threshold') || '15', 10);
 
@@ -746,29 +747,29 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="h-screen w-screen flex flex-col bg-discord-darkest overflow-hidden">
+      <div className="h-screen w-screen flex flex-col bg-background overflow-hidden">
         {/* Barra de Título Superior Customizada */}
         <TitleBar />
 
         {/* Banner de Atualização Automática Estilo Discord */}
         {updateStatus.available && (
-          <div className="bg-gradient-to-r from-[#5865F2] to-[#4752c4] text-white px-4 py-2 flex items-center justify-between text-xs font-semibold shadow-lg z-50 animate-in fade-in slide-in-from-top-2">
+          <div className="bg-surface-container border-b border-primary/50 shadow-[inset_0_0_12px_rgba(255,45,120,0.1)] text-on-surface px-4 py-2 flex items-center justify-between text-xs font-semibold z-50 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center space-x-2 truncate">
-              <span className="bg-white text-[#5865F2] px-2 py-0.5 rounded font-black text-[10px] tracking-wide">
+              <span className="bg-primary-container text-on-primary-container px-2 py-0.5 rounded font-label font-bold text-[10px] tracking-widest">
                 NOVA VERSÃO v{updateStatus.version}
               </span>
               <span className="truncate">{updateStatus.releaseNotes}</span>
             </div>
             <div className="flex items-center space-x-2 flex-shrink-0">
               {updateStatus.downloading ? (
-                <div className="bg-black/30 px-3 py-1 rounded text-[11px] font-mono flex items-center space-x-2">
-                  <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                <div className="bg-surface-container-lowest px-3 py-1 rounded font-label text-[11px] text-secondary flex items-center space-x-2">
+                  <span className="w-2 h-2 rounded-full bg-secondary animate-ping"></span>
                   <span>Atualizando... {updateStatus.progress}%</span>
                 </div>
               ) : (
                 <button
                   onClick={handleStartAutoUpdate}
-                  className="bg-white text-[#5865F2] hover:bg-slate-100 px-3.5 py-1 rounded font-bold text-xs transition shadow cursor-pointer active:scale-95"
+                  className="bg-surface-container-high text-primary border border-primary/50 hover:bg-primary-container hover:text-on-primary-container hover-glow-pink px-3.5 py-1 rounded-lg font-headline font-bold text-xs transition cursor-pointer active:scale-95"
                 >
                   Atualizar Agora (Sem reinstalar)
                 </button>
@@ -832,26 +833,10 @@ export default function App() {
               onToggleStreamMute={handleToggleStreamMute}
               streamVolumes={streamVolumes}
               streamMuted={streamMuted}
+              noiseMode={noiseMode}
             />
           ) : (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Barra Superior quando estiver no Chat de Texto com chamada conectada */}
-              {currentVoiceChannel && (
-                <div className="bg-[#232428] border-b border-[#1e1f22] px-4 py-2 flex items-center justify-between text-xs shadow z-10">
-                  <div className="flex items-center space-x-2 text-discord-green font-bold">
-                    <span className="w-2.5 h-2.5 rounded-full bg-discord-green animate-pulse"></span>
-                    <span>Voz Conectada: {currentVoiceChannel.name}</span>
-                    <span className="text-discord-muted font-normal">({usersInCall.length} na call)</span>
-                  </div>
-                  <button
-                    onClick={() => setActiveView('call')}
-                    className="bg-[#5865F2] hover:bg-[#4752c4] text-white px-3 py-1 rounded font-bold text-xs transition flex items-center space-x-1 shadow"
-                  >
-                    <span>Ver Chamada e Transmissões</span>
-                    <span>➔</span>
-                  </button>
-                </div>
-              )}
               <ChatArea
                 currentTextChannel={currentTextChannel}
                 messages={messages}
@@ -862,6 +847,15 @@ export default function App() {
                   const general = channels.find((c) => c.type === 'voice');
                   if (general) handleSelectVoiceChannel(general);
                 }}
+              />
+              <VoiceDock
+                channel={currentVoiceChannel}
+                usersCount={usersInCall.length}
+                currentUser={currentUser}
+                onToggleMic={handleToggleMic}
+                onToggleDeafen={handleToggleDeafen}
+                onOpenCall={() => setActiveView('call')}
+                onLeave={handleLeaveVoice}
               />
             </div>
           )}

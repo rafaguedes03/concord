@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, session } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, session, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -13,7 +13,46 @@ app.commandLine.appendSwitch('use-angle', 'd3d11');
 app.commandLine.appendSwitch('enable-features', 'WebRtcAllowWgcScreenCapturer');
 
 let mainWindow;
+let tray = null;
+let isQuitting = false; // Só fecha de verdade pela opção "Sair" da bandeja (ou atualização automática)
+let trayHintShown = false;
 let selectedDisplaySourceId = null;
+
+// Garante uma única instância: abrir o app de novo traz a janela que está na bandeja
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => showMainWindow());
+}
+
+function showMainWindow() {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+// Ícone na área de notificação com opções de abrir e sair
+function createTray() {
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png'));
+  tray = new Tray(icon);
+  tray.setToolTip('Concord');
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Abrir Concord', click: () => showMainWindow() },
+      { type: 'separator' },
+      {
+        label: 'Sair do Concord',
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        }
+      }
+    ])
+  );
+  tray.on('click', () => showMainWindow());
+  tray.on('double-click', () => showMainWindow());
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -21,16 +60,32 @@ function createWindow() {
     height: 800,
     minWidth: 940,
     minHeight: 600,
-    backgroundColor: '#1e1f22',
+    backgroundColor: '#0a0a12',
     autoHideMenuBar: true,
     frame: false, // Barra customizada arrastável via -webkit-app-region: drag
     title: 'Concord',
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: false,
       backgroundThrottling: false // Mantém 60 FPS fluídos mesmo em segundo plano
+    }
+  });
+
+  // Fechar a janela apenas esconde na bandeja; a chamada de voz continua ativa
+  mainWindow.on('close', (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    mainWindow.hide();
+    if (!trayHintShown && tray && process.platform === 'win32') {
+      trayHintShown = true;
+      tray.displayBalloon({
+        iconType: 'info',
+        title: 'Concord continua aberto',
+        content: 'O app está na área de notificação. Para sair, clique com o botão direito no ícone e escolha "Sair do Concord".'
+      });
     }
   });
 
@@ -155,11 +210,18 @@ ipcMain.on('window-close', () => {
 });
 
 app.whenReady().then(() => {
+  createTray();
   createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    else showMainWindow();
   });
+});
+
+// Qualquer encerramento explícito (Sair da bandeja, atualização automática) libera o fechamento da janela
+app.on('before-quit', () => {
+  isQuitting = true;
 });
 
 app.on('window-all-closed', () => {
