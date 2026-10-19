@@ -1,6 +1,6 @@
-# 🎮 Discord Clone - Voz & Compartilhamento de Tela 720p 60FPS
+# 🎮 Concord - Voz & Compartilhamento de Tela
 
-Um aplicativo desktop completo e moderno estilo Discord com foco em comunicação por voz de alta fidelidade e transmissão de tela a 60 FPS e 720p.
+Um aplicativo desktop completo e moderno com foco em comunicação por voz de alta fidelidade e transmissão de tela em alta qualidade.
 
 ---
 
@@ -11,8 +11,8 @@ Um aplicativo desktop completo e moderno estilo Discord com foco em comunicaçã
    - Basta escolher um apelido (Nickname) e entrar instantaneamente.
    - Salva suas preferências localmente para abrir direto da próxima vez.
 
-2. **Compartilhamento de Tela Otimizado (720p @ 60 FPS):**
-   - Resolução travada em **1280x720** e taxa de quadros a **60 FPS**.
+2. **Compartilhamento de Tela Otimizado (1080p @ 60 FPS):**
+   - Resoluções **720/1080p** e taxa de quadros a **30/60 FPS**.
    - Bitrate elevado (~4.5 Mbps) com flag `contentHint: "motion"` para jogos rápidos e vídeos fluidos sem pixelização ou travamentos.
    - Seletor nativo estilo Discord para escolher entre telas inteiras ou janelas específicas com miniaturas ao vivo.
    - Badge "AO VIVO 720p 60FPS", botão de tela cheia e visualização em destaque.
