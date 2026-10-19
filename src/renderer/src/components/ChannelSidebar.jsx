@@ -1,14 +1,11 @@
 import {
   Volume2,
-  Hash,
   Plus,
   Mic,
   MicOff,
   Headphones,
   Settings,
   PhoneOff,
-  Radio,
-  Tv,
   Trash2
 } from 'lucide-react';
 
@@ -32,48 +29,70 @@ export default function ChannelSidebar({
   const textChannels = channels.filter((c) => c.type === 'text');
 
   return (
-    <div className="w-60 bg-discord-darker flex flex-col h-full select-none border-r border-[#1e1f22]">
-      {/* Topo do Servidor */}
-      <div className="h-12 border-b border-[#1f2023] px-4 flex items-center justify-between font-bold text-white shadow-sm hover:bg-[#35373c] transition cursor-pointer">
-        <span className="truncate">Meu Servidor</span>
-        <span className="text-discord-muted text-xs">▼</span>
+    <div className="w-64 bg-surface-container-low flex flex-col h-full select-none border-r border-outline-variant/40">
+      {/* Banner do Servidor */}
+      <div className="relative p-3.5 bg-surface-container-high/60 backdrop-blur-md shadow-md">
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+            <span className="text-[10px] font-label font-bold tracking-widest text-primary uppercase">Concord</span>
+          </div>
+          <h1 className="text-sm font-headline font-bold text-on-surface truncate tracking-wider mt-0.5 uppercase">
+            Meu Servidor
+          </h1>
+        </div>
+        <div className="mt-2.5 flex items-center justify-between text-[10px] font-label text-on-surface-variant bg-surface-container-lowest/80 px-2.5 py-1 rounded">
+          <span className="flex items-center gap-1 text-secondary uppercase">
+            <span className="w-1 h-1 rounded-full bg-secondary"></span> {users.length} Online
+          </span>
+          <span className="text-on-surface-variant/70 uppercase">{channels.length} Canais</span>
+        </div>
       </div>
 
       {/* Lista de Canais */}
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
         {/* SEÇÃO CANAIS DE VOZ */}
         <div>
-          <div className="flex items-center justify-between px-2 mb-1 text-xs font-bold text-discord-muted uppercase tracking-wider group">
-            <span className="hover:text-white transition">Canais de Voz</span>
+          <div className="flex items-center justify-between px-2 mb-1 text-[10px] font-label font-bold text-on-surface-variant/80 uppercase tracking-widest">
+            <span>Canais de Voz</span>
             <button
               onClick={() => onOpenCreateChannel('voice')}
-              className="hover:text-white transition p-0.5"
+              className="hover:text-secondary transition p-0.5"
               title="Criar Canal de Voz"
             >
-              <Plus size={16} />
+              <Plus size={14} />
             </button>
           </div>
 
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {voiceChannels.map((ch) => {
               const isCurrent = currentVoiceChannel?.id === ch.id;
               // Usuários conectados nesta call específica
               const usersInThisChannel = users.filter((u) => u.currentVoiceChannel === ch.id);
 
               return (
-                <div key={ch.id} className="space-y-1">
+                <div
+                  key={ch.id}
+                  className={`rounded-lg transition-colors ${
+                    isCurrent ? 'bg-surface-container-high/40 p-2' : 'hover:bg-surface-container p-2'
+                  }`}
+                >
                   <div
                     onClick={() => onSelectVoiceChannel(ch)}
-                    className={`group flex items-center space-x-2 px-2 py-1.5 rounded-md cursor-pointer transition text-sm font-medium ${
-                      isCurrent
-                        ? 'bg-[#3f4147] text-white'
-                        : 'text-discord-muted hover:bg-[#35373c] hover:text-white'
+                    className={`group flex items-center gap-2 cursor-pointer text-xs font-headline ${
+                      isCurrent ? 'text-secondary font-semibold' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                   >
-                    <Volume2 size={18} className={isCurrent ? 'text-discord-green' : ''} />
+                    <Volume2 size={16} className={isCurrent ? '' : 'text-on-surface-variant/70'} />
                     <span className="truncate flex-1">{ch.name}</span>
                     {usersInThisChannel.length > 0 && (
-                      <span className="text-xs bg-[#1e1f22] px-1.5 py-0.2 rounded text-discord-muted">
+                      <span
+                        className={`text-[10px] font-label px-1.5 py-0.5 rounded ${
+                          isCurrent
+                            ? 'text-secondary-fixed-dim bg-secondary-container/60'
+                            : 'text-on-surface-variant/70'
+                        }`}
+                      >
                         {usersInThisChannel.length}
                       </span>
                     )}
@@ -85,31 +104,31 @@ export default function ChannelSidebar({
                             onDeleteChannel && onDeleteChannel(ch.id);
                           }
                         }}
-                        className="opacity-0 group-hover:opacity-100 hover:text-discord-red p-1 rounded transition text-discord-muted"
+                        className="opacity-0 group-hover:opacity-100 hover:text-error p-0.5 rounded transition text-on-surface-variant"
                         title="Excluir canal de voz"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                       </button>
                     )}
                   </div>
 
-                  {/* Usuários listados abaixo do canal de voz estilo Discord */}
+                  {/* Usuários listados abaixo do canal de voz */}
                   {usersInThisChannel.length > 0 && (
-                    <div className="pl-6 space-y-1">
+                    <div className="pl-6 mt-1.5 space-y-0.5">
                       {usersInThisChannel.map((u) => {
                         const isSpeaking = !!speakingUsers[u.id];
                         const isSelf = u.id === currentUser?.id;
                         return (
                           <div
                             key={u.id}
-                            className="flex items-center justify-between pr-2 py-1 rounded hover:bg-[#35373c]/60 text-xs"
+                            className="flex items-center justify-between pr-1 py-1 rounded hover:bg-surface-container-high/60 text-xs"
                           >
-                            <div className="flex items-center space-x-2 truncate">
+                            <div className="flex items-center gap-2 truncate">
                               <div
-                                className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold border overflow-hidden ${
-                                  isSpeaking ? 'border-discord-green ring-1 ring-discord-green' : 'border-transparent'
+                                className={`w-5 h-5 rounded-full flex items-center justify-center text-on-surface text-[9px] font-bold overflow-hidden ring-1 transition-shadow ${
+                                  isSpeaking ? 'ring-secondary shadow-[0_0_8px_rgba(0,255,204,0.6)]' : 'ring-transparent'
                                 }`}
-                                style={{ backgroundColor: u.avatarColor || '#5865F2' }}
+                                style={{ backgroundColor: u.avatarColor || '#b3004e' }}
                               >
                                 {u.avatarUrl ? (
                                   <img src={u.avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -118,8 +137,8 @@ export default function ChannelSidebar({
                                 )}
                               </div>
                               <span
-                                className={`truncate font-medium ${
-                                  isSpeaking ? 'text-discord-green font-bold' : 'text-[#dbdee1]'
+                                className={`truncate ${
+                                  isSpeaking ? 'text-secondary font-semibold' : 'text-on-surface-variant'
                                 }`}
                               >
                                 {u.nickname}
@@ -127,14 +146,14 @@ export default function ChannelSidebar({
                               </span>
                             </div>
 
-                            <div className="flex items-center space-x-1">
+                            <div className="flex items-center gap-1">
                               {u.isScreenSharing && (
-                                <span className="bg-[#ed4245] text-[9px] text-white px-1 rounded font-bold flex items-center">
+                                <span className="bg-primary text-[9px] font-label text-on-primary px-1 rounded font-bold flex items-center">
                                   AO VIVO
                                 </span>
                               )}
-                              {u.isMuted && <MicOff size={12} className="text-discord-red" />}
-                              {u.isDeafened && <Headphones size={12} className="text-discord-red" />}
+                              {u.isMuted && <MicOff size={12} className="text-error" />}
+                              {u.isDeafened && <Headphones size={12} className="text-error" />}
                             </div>
                           </div>
                         );
@@ -149,14 +168,14 @@ export default function ChannelSidebar({
 
         {/* SEÇÃO CANAIS DE TEXTO */}
         <div>
-          <div className="flex items-center justify-between px-2 mb-1 text-xs font-bold text-discord-muted uppercase tracking-wider group">
-            <span className="hover:text-white transition">Canais de Texto</span>
+          <div className="flex items-center justify-between px-2 mb-1 text-[10px] font-label font-bold text-on-surface-variant/80 uppercase tracking-widest">
+            <span>Canais de Texto</span>
             <button
               onClick={() => onOpenCreateChannel('text')}
-              className="hover:text-white transition p-0.5"
+              className="hover:text-secondary transition p-0.5"
               title="Criar Canal de Texto"
             >
-              <Plus size={16} />
+              <Plus size={14} />
             </button>
           </div>
 
@@ -167,13 +186,19 @@ export default function ChannelSidebar({
                 <div
                   key={ch.id}
                   onClick={() => onSelectTextChannel(ch)}
-                  className={`group flex items-center space-x-2 px-2 py-1.5 rounded-md cursor-pointer transition text-sm font-medium ${
+                  className={`relative group flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-all text-xs font-headline ${
                     isCurrent
-                      ? 'bg-[#3f4147] text-white'
-                      : 'text-discord-muted hover:bg-[#35373c] hover:text-white'
+                      ? 'bg-surface-container-highest text-on-surface font-semibold shadow-sm'
+                      : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                   }`}
                 >
-                  <Hash size={18} />
+                  <span
+                    className={`text-sm ${
+                      isCurrent ? 'text-primary font-bold' : 'text-on-surface-variant/60 group-hover:text-secondary'
+                    }`}
+                  >
+                    #
+                  </span>
                   <span className="truncate flex-1">{ch.name}</span>
                   {!(ch.id === 'chat-geral' || ch.name?.toLowerCase() === 'chat-geral') && (
                     <button
@@ -183,12 +208,13 @@ export default function ChannelSidebar({
                           onDeleteChannel && onDeleteChannel(ch.id);
                         }
                       }}
-                      className="opacity-0 group-hover:opacity-100 hover:text-discord-red p-1 rounded transition text-discord-muted"
+                      className="opacity-0 group-hover:opacity-100 hover:text-error p-0.5 rounded transition text-on-surface-variant"
                       title="Excluir canal de texto"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </button>
                   )}
+                  {isCurrent && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-primary rounded-r"></span>}
                 </div>
               );
             })}
@@ -198,83 +224,94 @@ export default function ChannelSidebar({
 
       {/* Widget de Conexão de Voz Ativa (quando conectado em uma call) */}
       {currentVoiceChannel && (
-        <div className="bg-[#232428] border-b border-[#1f2023] px-3 py-2 flex items-center justify-between">
-          <div className="flex flex-col truncate">
-            <div className="flex items-center space-x-1.5 text-discord-green text-xs font-bold">
-              <Radio size={14} className="animate-pulse" />
-              <span>Voz Conectada</span>
+        <div className="px-3 py-2.5 bg-surface-container-lowest border-t border-outline-variant/40 flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-secondary animate-pulse shadow-[0_0_8px_#00ffcc]"></span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[10px] font-label font-bold text-secondary uppercase tracking-widest leading-none truncate">
+                Voz Conectada
+              </span>
+              <span className="text-[11px] font-headline text-on-surface truncate mt-0.5">
+                {currentVoiceChannel.name} / RTC
+              </span>
             </div>
-            <span className="text-[11px] text-discord-muted truncate">
-              {currentVoiceChannel.name} / RTC
-            </span>
           </div>
           <button
             onClick={onLeaveVoice}
-            className="p-1.5 text-discord-muted hover:text-discord-red hover:bg-[#35373c] rounded transition"
+            className="w-7 h-7 rounded-lg bg-error-container/60 hover:bg-error-container text-error flex items-center justify-center transition"
             title="Desconectar da chamada"
           >
-            <PhoneOff size={18} />
+            <PhoneOff size={14} />
           </button>
         </div>
       )}
 
-      {/* Barra do Usuário no Rodapé (Estilo Discord Fiel) */}
-      <div className="h-[52px] bg-discord-userpanel px-2 flex items-center justify-between border-t border-[#1e1f22]">
+      {/* Barra do Usuário no Rodapé */}
+      <div className="h-14 bg-surface-container-lowest px-2 flex items-center justify-between border-t border-outline-variant/40">
         {/* Avatar e Nome */}
         <div
           onClick={onOpenSettings}
-          className="flex items-center space-x-2 px-1 py-1 rounded hover:bg-[#35373c] cursor-pointer flex-1 truncate transition"
+          className="flex items-center gap-2.5 px-1 py-1 rounded-lg hover:bg-surface-container cursor-pointer flex-1 truncate transition"
           title="Abrir Configurações"
         >
-          <div className="relative">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow overflow-hidden"
-              style={{ backgroundColor: currentUser?.avatarColor || '#5865F2' }}
-            >
-              {currentUser?.avatarUrl ? (
-                <img src={currentUser.avatarUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                currentUser?.nickname?.charAt(0).toUpperCase() || 'U'
-              )}
+          <div className="relative flex-shrink-0">
+            <div className="p-[2px] rounded-full ring-2 ring-secondary/80 shadow-[0_0_10px_rgba(0,255,204,0.4)]">
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface text-xs font-bold overflow-hidden"
+                style={{ backgroundColor: currentUser?.avatarColor || '#b3004e' }}
+              >
+                {currentUser?.avatarUrl ? (
+                  <img src={currentUser.avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  currentUser?.nickname?.charAt(0).toUpperCase() || 'U'
+                )}
+              </div>
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-discord-green border-2 border-discord-userpanel" />
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-surface-container-lowest shadow-[0_0_6px_#00ffcc]" />
           </div>
           <div className="flex flex-col truncate leading-tight">
-            <span className="text-xs font-bold text-white truncate">
+            <span className="text-xs font-headline font-bold text-on-surface truncate tracking-wide">
               {currentUser?.nickname || 'Você'}
             </span>
-            <span className="text-[10px] text-discord-muted">Online</span>
+            <span className="text-[10px] font-label text-secondary uppercase flex items-center gap-1">
+              <span className="w-1 h-1 rounded-full bg-secondary inline-block animate-pulse"></span>
+              Online
+            </span>
           </div>
         </div>
 
         {/* Botões de Mute Microfone, Deafen Fone e Configurações */}
-        <div className="flex items-center space-x-0.5">
+        <div className="flex items-center gap-1">
           <button
             onClick={onToggleMic}
-            className={`p-1.5 rounded hover:bg-[#35373c] transition ${
-              currentUser?.isMuted ? 'text-discord-red' : 'text-discord-text hover:text-white'
+            className={`w-7 h-7 rounded-lg flex items-center justify-center transition ${
+              currentUser?.isMuted
+                ? 'bg-error-container/60 text-error'
+                : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
             }`}
             title={currentUser?.isMuted ? 'Desmutar Microfone' : 'Mutar Microfone'}
           >
-            {currentUser?.isMuted ? <MicOff size={18} /> : <Mic size={18} />}
+            {currentUser?.isMuted ? <MicOff size={15} /> : <Mic size={15} />}
           </button>
 
           <button
             onClick={onToggleDeafen}
-            className={`p-1.5 rounded hover:bg-[#35373c] transition ${
-              currentUser?.isDeafened ? 'text-discord-red' : 'text-discord-text hover:text-white'
+            className={`w-7 h-7 rounded-lg flex items-center justify-center transition ${
+              currentUser?.isDeafened
+                ? 'bg-error-container/60 text-error'
+                : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
             }`}
             title={currentUser?.isDeafened ? 'Ativar Áudio' : 'Desativar Áudio (Ensurdecer)'}
           >
-            <Headphones size={18} />
+            <Headphones size={15} />
           </button>
 
           <button
             onClick={onOpenSettings}
-            className="p-1.5 rounded hover:bg-[#35373c] text-discord-text hover:text-white transition"
+            className="w-7 h-7 rounded-lg flex items-center justify-center bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-secondary transition"
             title="Configurações do Usuário"
           >
-            <Settings size={18} />
+            <Settings size={15} />
           </button>
         </div>
       </div>

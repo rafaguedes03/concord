@@ -180,16 +180,16 @@ export default function SettingsModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#313338] w-full max-w-lg rounded-xl shadow-2xl border border-[#2b2d31] overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="bg-surface-container w-full max-w-lg rounded-xl border border-primary/30 shadow-[inset_0_0_12px_rgba(255,45,120,0.1),0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col max-h-[92vh]">
         {/* Cabeçalho */}
-        <div className="p-4 border-b border-[#2b2d31] flex items-center justify-between bg-[#2b2d31]/50">
+        <div className="p-4 border-b border-outline-variant/40 flex items-center justify-between bg-surface-container-low/50">
           <div className="flex items-center space-x-2">
-            <h2 className="text-white font-bold text-lg">Configurações do Concord</h2>
+            <h2 className="text-on-surface font-headline font-bold text-lg">Configurações do Concord</h2>
           </div>
           <button
             onClick={onClose}
-            className="text-discord-muted hover:text-white transition p-1 cursor-pointer"
+            className="text-on-surface-variant hover:text-on-surface transition p-1 cursor-pointer"
           >
             <X size={20} />
           </button>
@@ -199,16 +199,16 @@ export default function SettingsModal({
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {/* Seção 1: Perfil do Usuário com Foto e ID Permanente */}
           <div>
-            <h3 className="text-xs font-bold text-discord-muted uppercase tracking-wider mb-2.5">
+            <h3 className="text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest mb-2.5">
               Seu Perfil Permanente
             </h3>
-            <div className="bg-[#2b2d31] p-4 rounded-lg border border-[#35373c] space-y-3.5">
+            <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant/40 space-y-3.5">
               <div className="flex items-center space-x-4">
                 {/* Avatar com botão de alterar */}
                 <div className="relative group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
                   <div
-                    className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-lg overflow-hidden border-2 border-[#5865F2]"
-                    style={{ backgroundColor: currentUser?.avatarColor || '#5865F2' }}
+                    className="w-16 h-16 rounded-full flex items-center justify-center text-on-surface text-xl font-bold shadow-lg overflow-hidden border-2 border-primary"
+                    style={{ backgroundColor: currentUser?.avatarColor || '#b3004e' }}
                   >
                     {avatarPreview ? (
                       <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
@@ -216,7 +216,7 @@ export default function SettingsModal({
                       nickname.charAt(0).toUpperCase() || 'U'
                     )}
                   </div>
-                  <div className="absolute inset-0 bg-black/60 rounded-full flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition">
+                  <div className="absolute inset-0 bg-background/60 rounded-full flex flex-col items-center justify-center text-on-surface opacity-0 group-hover:opacity-100 transition">
                     <Camera size={18} />
                     <span className="text-[9px] font-bold mt-0.5">Mudar</span>
                   </div>
@@ -232,11 +232,11 @@ export default function SettingsModal({
 
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-white">Apelido no Servidor</label>
+                    <label className="text-xs font-bold text-on-surface">Apelido no Servidor</label>
                     <button
                       type="button"
                       onClick={() => avatarInputRef.current?.click()}
-                      className="text-xs font-semibold text-[#5865F2] hover:underline cursor-pointer"
+                      className="text-xs font-semibold text-primary hover:underline cursor-pointer"
                     >
                       Alterar Foto
                     </button>
@@ -246,26 +246,26 @@ export default function SettingsModal({
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
                     maxLength={32}
-                    className="w-full bg-[#1e1f22] border border-[#35373c] focus:border-[#5865F2] rounded px-3 py-1.5 text-white text-sm focus:outline-none select-text"
+                    className="w-full bg-surface-container-lowest border-0 border-b-2 border-outline-variant focus:border-primary focus:shadow-[0_6px_12px_-6px_rgba(255,45,120,0.5)] rounded-t-md px-3 py-1.5 text-on-surface text-sm focus:outline-none select-text"
                   />
                 </div>
               </div>
 
               {/* ID de Usuário Permanente */}
-              <div className="pt-2 border-t border-[#35373c]/70 flex items-center justify-between text-xs">
-                <div className="flex items-center space-x-1.5 text-discord-muted truncate">
+              <div className="pt-2 border-t border-outline-variant/30 flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-1.5 text-on-surface-variant truncate">
                   <span>ID do Usuário:</span>
-                  <span className="font-mono text-white bg-[#1e1f22] px-2 py-0.5 rounded border border-[#35373c] truncate max-w-[200px]">
+                  <span className="font-mono text-on-surface bg-surface-container-lowest px-2 py-0.5 rounded border border-outline-variant/40 truncate max-w-[200px]">
                     {persistentUserId || 'user_local'}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={copyUserId}
-                  className="text-xs text-[#5865F2] hover:text-[#7983f5] font-semibold flex items-center space-x-1 cursor-pointer"
+                  className="text-xs text-primary hover:text-primary-fixed-dim font-semibold flex items-center space-x-1 cursor-pointer"
                   title="Copiar ID"
                 >
-                  {copiedId ? <CheckCheck size={14} className="text-discord-green" /> : <Copy size={14} />}
+                  {copiedId ? <CheckCheck size={14} className="text-secondary" /> : <Copy size={14} />}
                   <span>{copiedId ? 'Copiado!' : 'Copiar ID'}</span>
                 </button>
               </div>
@@ -274,8 +274,8 @@ export default function SettingsModal({
 
           {/* Seção 2: Supressão de Ruído e Microfone */}
           <div>
-            <h3 className="text-xs font-bold text-discord-muted uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
-              <Mic size={14} className="text-[#5865F2]" />
+            <h3 className="text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest mb-2.5 flex items-center space-x-1.5">
+              <Mic size={14} className="text-primary" />
               <span>Microfone & Supressão de Ruído</span>
             </h3>
 
@@ -286,29 +286,29 @@ export default function SettingsModal({
                 onClick={() => handleModeChange('auto')}
                 className={`p-3.5 rounded-lg border cursor-pointer transition flex flex-col justify-between ${
                   mode === 'auto'
-                    ? 'border-[#5865F2] bg-[#5865F2]/10 shadow'
-                    : 'border-[#35373c] bg-[#2b2d31] hover:border-[#4f545c]'
+                    ? 'border-secondary bg-secondary-container/20 shadow-[0_0_12px_rgba(0,255,204,0.2)]'
+                    : 'border-outline-variant/40 bg-surface-container-low hover:border-outline'
                 }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center space-x-1.5 font-bold text-sm text-white">
-                      <Sparkles size={16} className="text-[#5865F2]" />
+                    <div className="flex items-center space-x-1.5 font-headline font-bold text-sm text-on-surface">
+                      <Sparkles size={16} className="text-tertiary" />
                       <span>IA DeepFilterNet3</span>
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-discord-green/20 text-discord-green px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-secondary/20 text-secondary px-1.5 py-0.5 rounded">
                       Deep Learning
                     </span>
                   </div>
-                  <p className="text-xs text-discord-muted leading-relaxed">
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
                     Motor neural de alta definição a 48 kHz. Silencia totalmente teclados mecânicos, ventiladores e ruídos externos, mantendo a voz encorpada e cristalina.
                   </p>
                 </div>
-                <div className="mt-3 flex items-center space-x-1.5 text-[11px] font-semibold text-[#5865F2]">
+                <div className="mt-3 flex items-center space-x-1.5 text-[11px] font-label font-bold text-secondary">
                   <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                    mode === 'auto' ? 'border-[#5865F2] bg-[#5865F2]' : 'border-discord-muted'
+                    mode === 'auto' ? 'border-secondary bg-secondary' : 'border-on-surface-variant'
                   }`}>
-                    {mode === 'auto' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    {mode === 'auto' && <div className="w-1.5 h-1.5 rounded-full bg-on-secondary" />}
                   </div>
                   <span>{mode === 'auto' ? 'Selecionado (Recomendado)' : 'Ativar IA DeepFilterNet'}</span>
                 </div>
@@ -319,29 +319,29 @@ export default function SettingsModal({
                 onClick={() => handleModeChange('manual')}
                 className={`p-3.5 rounded-lg border cursor-pointer transition flex flex-col justify-between ${
                   mode === 'manual'
-                    ? 'border-[#5865F2] bg-[#5865F2]/10 shadow'
-                    : 'border-[#35373c] bg-[#2b2d31] hover:border-[#4f545c]'
+                    ? 'border-secondary bg-secondary-container/20 shadow-[0_0_12px_rgba(0,255,204,0.2)]'
+                    : 'border-outline-variant/40 bg-surface-container-low hover:border-outline'
                 }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center space-x-1.5 font-bold text-sm text-white">
-                      <Sliders size={16} className="text-[#5865F2]" />
+                    <div className="flex items-center space-x-1.5 font-headline font-bold text-sm text-on-surface">
+                      <Sliders size={16} className="text-primary" />
                       <span>Noise Gate Manual</span>
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-[#5865F2]/20 text-[#5865F2] px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary px-1.5 py-0.5 rounded">
                       Estúdio
                     </span>
                   </div>
-                  <p className="text-xs text-discord-muted leading-relaxed">
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
                     Controle manual com barra de sensibilidade ajustável. Mantém o tom puro e encorpado para microfones de estúdio/mesa.
                   </p>
                 </div>
-                <div className="mt-3 flex items-center space-x-1.5 text-[11px] font-semibold text-[#5865F2]">
+                <div className="mt-3 flex items-center space-x-1.5 text-[11px] font-label font-bold text-secondary">
                   <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                    mode === 'manual' ? 'border-[#5865F2] bg-[#5865F2]' : 'border-discord-muted'
+                    mode === 'manual' ? 'border-secondary bg-secondary' : 'border-on-surface-variant'
                   }`}>
-                    {mode === 'manual' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    {mode === 'manual' && <div className="w-1.5 h-1.5 rounded-full bg-on-secondary" />}
                   </div>
                   <span>{mode === 'manual' ? 'Selecionado' : 'Ativar Modo Manual'}</span>
                 </div>
@@ -349,13 +349,13 @@ export default function SettingsModal({
             </div>
 
             {/* Painel de Ajustes e Feedback ao Vivo */}
-            <div className="bg-[#2b2d31] p-4 rounded-lg border border-[#35373c] space-y-3">
+            <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant/40 space-y-3">
               {mode === 'manual' && (
                 <>
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-semibold text-white">Ativar Noise Gate</div>
-                      <div className="text-xs text-discord-muted">
+                      <div className="text-sm font-semibold text-on-surface">Ativar Noise Gate</div>
+                      <div className="text-xs text-on-surface-variant">
                         Corta o sinal de áudio quando o volume estiver abaixo do limiar.
                       </div>
                     </div>
@@ -363,15 +363,15 @@ export default function SettingsModal({
                       type="checkbox"
                       checked={noiseEnabled}
                       onChange={(e) => handleNoiseToggle(e.target.checked)}
-                      className="w-5 h-5 accent-[#5865F2] cursor-pointer"
+                      className="w-5 h-5 accent-primary cursor-pointer"
                     />
                   </div>
 
                   {noiseEnabled && (
-                    <div className="pt-2 border-t border-[#35373c] space-y-2">
-                      <div className="flex items-center justify-between text-xs text-white">
+                    <div className="pt-2 border-t border-outline-variant/40 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-on-surface">
                         <span>Sensibilidade do Gate:</span>
-                        <span className="font-bold text-[#5865F2] bg-[#5865F2]/20 px-2 py-0.5 rounded">
+                        <span className="font-bold text-primary bg-primary/20 px-2 py-0.5 rounded">
                           {noiseThreshold}%
                         </span>
                       </div>
@@ -382,9 +382,9 @@ export default function SettingsModal({
                         step="1"
                         value={noiseThreshold}
                         onChange={(e) => handleThresholdChange(Number(e.target.value))}
-                        className="w-full accent-[#5865F2] cursor-pointer"
+                        className="w-full accent-primary cursor-pointer"
                       />
-                      <div className="flex justify-between text-[10px] text-discord-muted">
+                      <div className="flex justify-between text-[10px] text-on-surface-variant">
                         <span>Mais sensível (capta sussurros)</span>
                         <span>Corte forte (bloqueia ruídos)</span>
                       </div>
@@ -395,22 +395,22 @@ export default function SettingsModal({
 
               {/* Barra de Teste de Microfone ao Vivo */}
               <div className="space-y-1.5 pt-1">
-                <div className="flex justify-between text-[11px] text-discord-muted">
+                <div className="flex justify-between text-[11px] text-on-surface-variant">
                   <span>Teste de Microfone (Fale agora):</span>
                   {mode === 'auto' ? (
-                    <span className={micLevel >= 6 ? 'text-discord-green font-bold' : 'text-discord-muted'}>
+                    <span className={micLevel >= 6 ? 'text-secondary font-bold' : 'text-on-surface-variant'}>
                       {micLevel >= 6 ? 'Transmitindo com IA ✓' : 'Silêncio / Ruído filtrado'}
                     </span>
                   ) : (
-                    <span className={(!noiseEnabled || micLevel >= noiseThreshold) ? 'text-discord-green font-bold' : 'text-discord-muted'}>
+                    <span className={(!noiseEnabled || micLevel >= noiseThreshold) ? 'text-secondary font-bold' : 'text-on-surface-variant'}>
                       {(!noiseEnabled || micLevel >= noiseThreshold) ? 'Transmitindo voz ✓' : 'Silêncio / Cortado'}
                     </span>
                   )}
                 </div>
-                <div className="h-3 w-full bg-[#1e1f22] rounded-full overflow-hidden relative border border-[#35373c]">
+                <div className="h-3 w-full bg-surface-container-lowest rounded-full overflow-hidden relative border border-outline-variant/40">
                   {mode === 'manual' && noiseEnabled && (
                     <div
-                      className="absolute top-0 bottom-0 w-1 bg-white z-10 shadow"
+                      className="absolute top-0 bottom-0 w-1 bg-primary z-10 shadow-[0_0_6px_#ff2d78]"
                       style={{ left: `${noiseThreshold}%` }}
                       title={`Corte em ${noiseThreshold}%`}
                     />
@@ -418,8 +418,8 @@ export default function SettingsModal({
                   <div
                     className={`h-full transition-all duration-75 ${
                       (mode === 'auto' ? micLevel >= 6 : (!noiseEnabled || micLevel >= noiseThreshold))
-                        ? 'bg-discord-green'
-                        : 'bg-slate-500'
+                        ? 'bg-secondary'
+                        : 'bg-outline'
                     }`}
                     style={{ width: `${micLevel}%` }}
                   />
@@ -430,20 +430,20 @@ export default function SettingsModal({
 
           {/* Seção 3: Servidor */}
           <div>
-            <h3 className="text-xs font-bold text-discord-muted uppercase tracking-wider mb-2 flex items-center space-x-1.5">
-              <Server size={14} className="text-discord-green" />
+            <h3 className="text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest mb-2 flex items-center space-x-1.5">
+              <Server size={14} className="text-secondary" />
               <span>Servidor Conectado</span>
             </h3>
-            <div className="bg-[#2b2d31] p-3.5 rounded-lg border border-[#35373c] space-y-2">
-              <label className="text-[11px] text-discord-muted block">Endereço IP e Porta</label>
+            <div className="bg-surface-container-low p-3.5 rounded-lg border border-outline-variant/40 space-y-2">
+              <label className="text-[11px] text-on-surface-variant block">Endereço IP e Porta</label>
               <input
                 type="text"
                 value={serverUrl}
                 onChange={(e) => setServerUrl(e.target.value)}
                 placeholder="Ex: 45.184.120.69:3002 ou localhost:3002"
-                className="w-full bg-[#1e1f22] border border-[#35373c] focus:border-[#5865F2] rounded px-3 py-1.5 text-white text-sm focus:outline-none select-text font-mono"
+                className="w-full bg-surface-container-lowest border-0 border-b-2 border-outline-variant focus:border-primary focus:shadow-[0_6px_12px_-6px_rgba(255,45,120,0.5)] rounded-t-md px-3 py-1.5 text-on-surface text-sm focus:outline-none select-text font-mono"
               />
-              <p className="text-[11px] text-discord-muted">
+              <p className="text-[11px] text-on-surface-variant">
                 Altere aqui se quiser conectar a outro PC na sua rede local ou via IP público.
               </p>
             </div>
@@ -451,24 +451,24 @@ export default function SettingsModal({
 
           {/* Seção 4: Transmissão de Vídeo */}
           <div>
-            <h3 className="text-xs font-bold text-discord-muted uppercase tracking-wider mb-2 flex items-center space-x-1.5">
-              <Tv size={14} className="text-[#5865F2]" />
+            <h3 className="text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest mb-2 flex items-center space-x-1.5">
+              <Tv size={14} className="text-primary" />
               <span>Transmissão Multi-Telas</span>
             </h3>
-            <div className="bg-[#2b2d31] p-3.5 rounded-lg border border-[#35373c] space-y-2 text-xs">
-              <div className="flex items-center justify-between text-white">
+            <div className="bg-surface-container-low p-3.5 rounded-lg border border-outline-variant/40 space-y-2 text-xs">
+              <div className="flex items-center justify-between text-on-surface">
                 <span>Multi-Stream Simultâneo:</span>
-                <span className="font-bold text-discord-green bg-discord-green/20 px-2 py-0.5 rounded">
+                <span className="font-bold text-secondary bg-secondary/20 px-2 py-0.5 rounded">
                   Todos veem todos
                 </span>
               </div>
-              <div className="flex items-center justify-between text-white">
+              <div className="flex items-center justify-between text-on-surface">
                 <span>Qualidade e FPS:</span>
-                <span className="font-bold text-[#5865F2] bg-[#5865F2]/20 px-2 py-0.5 rounded">
+                <span className="font-bold text-primary bg-primary/20 px-2 py-0.5 rounded">
                   720p / 1080p a 60 FPS
                 </span>
               </div>
-              <p className="text-[11px] text-discord-muted pt-1">
+              <p className="text-[11px] text-on-surface-variant pt-1">
                 Motor em tempo real ultra-otimizado com sincronização direta no Concord.
               </p>
             </div>
@@ -476,18 +476,18 @@ export default function SettingsModal({
         </div>
 
         {/* Rodapé */}
-        <div className="bg-[#2b2d31] px-6 py-3 border-t border-[#1e1f22] flex items-center justify-between">
-          <span className="text-xs text-discord-muted font-semibold">Concord v1.5.0</span>
+        <div className="bg-surface-container-lowest px-6 py-3 border-t border-outline-variant/40 flex items-center justify-between">
+          <span className="text-[10px] font-label tracking-widest uppercase text-on-surface-variant">Concord v1.5.0</span>
           <div className="flex items-center space-x-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-white hover:underline transition cursor-pointer"
+              className="px-4 py-2 rounded-lg text-sm font-headline font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               onClick={handleSave}
-              className="px-5 py-2 bg-[#5865F2] hover:bg-[#4752c4] text-white rounded text-sm font-semibold flex items-center space-x-1.5 transition shadow cursor-pointer"
+              className="px-5 py-2 bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container hover-glow-pink rounded-lg font-headline text-sm font-semibold flex items-center space-x-1.5 transition shadow cursor-pointer"
             >
               {isSaved ? (
                 <>

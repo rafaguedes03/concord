@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Hash, Send, Volume2, PlusCircle, X, Maximize2, Download } from 'lucide-react';
+import { Hash, Send, Volume2, Plus, X, Maximize2, Download } from 'lucide-react';
 
 export default function ChatArea({
   currentTextChannel,
@@ -89,19 +89,22 @@ export default function ChatArea({
     setAttachedImage(null);
   };
 
+  const channelName = currentTextChannel?.name || 'chat-geral';
+
   return (
     <div
       onPaste={handlePaste}
-      className="flex-1 bg-discord-dark flex flex-col h-full overflow-hidden select-none relative"
+      className="flex-1 bg-surface-container-lowest flex flex-col h-full overflow-hidden select-none relative"
     >
       {/* Cabeçalho do Canal de Texto */}
-      <div className="h-12 border-b border-[#1f2023] px-4 flex items-center justify-between shadow-sm flex-shrink-0">
-        <div className="flex items-center space-x-2">
-          <Hash size={22} className="text-discord-muted" />
-          <span className="text-white font-bold text-base">
-            {currentTextChannel?.name || 'chat-geral'}
-          </span>
-          <span className="text-discord-muted text-xs border-l border-[#35373c] pl-3 ml-2 hidden sm:inline">
+      <div className="h-14 bg-surface-container-low/80 backdrop-blur-md px-4 flex items-center justify-between shadow-sm flex-shrink-0 z-10 border-b border-outline-variant/40">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-primary text-xl font-bold">#</span>
+            <span className="font-headline font-bold text-sm text-on-surface tracking-wide">{channelName}</span>
+          </div>
+          <div className="hidden sm:block w-px h-4 bg-outline-variant/60"></div>
+          <span className="hidden sm:inline text-xs text-on-surface-variant truncate">
             Canal de texto oficial do Concord
           </span>
         </div>
@@ -109,113 +112,139 @@ export default function ChatArea({
         {!isVoiceConnected && (
           <button
             onClick={onJoinVoiceFromChat}
-            className="bg-discord-green hover:bg-discord-green-hover text-white text-xs font-bold px-3 py-1.5 rounded flex items-center space-x-1.5 transition shadow"
+            className="bg-secondary-container/40 hover:bg-secondary-container text-secondary border border-secondary/40 text-xs font-headline font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition hover-glow-cyan"
           >
-            <Volume2 size={16} />
+            <Volume2 size={15} />
             <span>Entrar na Call Geral</span>
           </button>
         )}
       </div>
 
       {/* Lista de Mensagens */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-4 space-y-5">
         {/* Mensagem de Boas-vindas do Canal */}
-        <div className="mb-6 pt-4 border-b border-[#2b2d31] pb-4">
-          <div className="w-16 h-16 rounded-full bg-[#2b2d31] flex items-center justify-center text-white mb-2">
-            <Hash size={36} />
+        <div className="p-6 rounded-xl bg-surface-container-low shadow-md relative overflow-hidden">
+          <div className="relative z-10 max-w-xl">
+            <div className="w-10 h-10 rounded-lg bg-primary-container/80 flex items-center justify-center text-on-primary-container mb-3 shadow-lg">
+              <Hash size={22} />
+            </div>
+            <h2 className="text-xl font-headline font-bold text-on-surface tracking-wide">
+              Bem-vindo ao #{channelName}!
+            </h2>
+            <p className="text-xs text-on-surface-variant mt-1.5 leading-relaxed">
+              Este é o início do canal #{channelName} no Concord. Converse por texto, envie imagens e entre na chamada de voz!
+            </p>
           </div>
-          <h2 className="text-2xl font-black text-white">
-            Bem-vindo ao #{currentTextChannel?.name || 'chat-geral'}!
-          </h2>
-          <p className="text-discord-muted text-sm mt-1">
-            Este é o início do canal #{currentTextChannel?.name || 'chat-geral'} no Concord. Converse por texto, envie imagens e entre na chamada de voz!
-          </p>
+          {/* SVG decorativo */}
+          <svg className="absolute right-0 bottom-0 top-0 h-full w-1/3 opacity-20 pointer-events-none" fill="none" viewBox="0 0 200 200">
+            <circle className="text-secondary" cx="150" cy="100" r="80" stroke="currentColor" strokeDasharray="4 6" strokeWidth="1.5" />
+            <circle className="text-primary" cx="150" cy="100" r="50" stroke="currentColor" strokeWidth="1" />
+            <line className="text-secondary" stroke="currentColor" strokeWidth="1" x1="70" x2="190" y1="100" y2="100" />
+          </svg>
         </div>
 
-        {/* Mensagens Enviadas */}
-        {messages.map((msg) => (
-          <div key={msg.id} className="flex space-x-3 group hover:bg-[#2e3035]/40 -mx-4 px-4 py-1.5 rounded transition">
-            {/* Foto de Perfil ou Inicial */}
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow overflow-hidden"
-              style={{ backgroundColor: msg.sender?.avatarColor || '#5865F2' }}
-            >
-              {msg.sender?.avatarUrl ? (
-                <img src={msg.sender.avatarUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                msg.sender?.nickname?.charAt(0).toUpperCase() || 'U'
-              )}
-            </div>
-            <div className="flex flex-col flex-1 overflow-hidden leading-snug">
-              <div className="flex items-baseline space-x-2">
-                <span className="text-white font-semibold text-sm hover:underline cursor-pointer">
-                  {msg.sender?.nickname}
-                </span>
-                <span className="text-[11px] text-discord-muted">
-                  {msg.timestamp}
-                </span>
-              </div>
-
-              {msg.text && (
-                <p className="text-discord-text text-sm select-text break-words mt-0.5">
-                  {msg.text}
-                </p>
-              )}
-
-              {/* Exibição de Imagem Anexada */}
-              {msg.image && (
-                <div className="mt-2 max-w-sm sm:max-w-md rounded-lg overflow-hidden border border-[#2b2d31] bg-black/30 group/img relative inline-block">
-                  <img
-                    src={msg.image}
-                    alt="Imagem enviada"
-                    onClick={() => setViewingImage(msg.image)}
-                    className="max-h-72 w-auto object-contain cursor-pointer hover:opacity-95 transition rounded"
-                  />
-                  <div
-                    onClick={() => setViewingImage(msg.image)}
-                    className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-1.5 rounded opacity-0 group-hover/img:opacity-100 transition cursor-pointer"
-                    title="Ampliar Imagem"
-                  >
-                    <Maximize2 size={14} />
-                  </div>
-                </div>
-              )}
-            </div>
+        {messages.length > 0 && (
+          <div className="flex items-center gap-3">
+            <div className="h-px bg-surface-container-highest flex-1"></div>
+            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant/70 font-semibold px-2">Mensagens</span>
+            <div className="h-px bg-surface-container-highest flex-1"></div>
           </div>
-        ))}
+        )}
+
+        {/* Mensagens Enviadas */}
+        {messages.map((msg) => {
+          const isOwn = msg.sender?.id && msg.sender.id === currentUser?.id;
+          return (
+            <div
+              key={msg.id}
+              className={`flex gap-3 group -mx-4 px-4 py-2 rounded-lg transition ${
+                isOwn ? 'bg-surface-container-low/40' : 'hover:bg-surface-container-low/40'
+              }`}
+            >
+              {/* Foto de Perfil ou Inicial */}
+              <div
+                className={`w-9 h-9 rounded-lg flex items-center justify-center text-on-surface text-sm font-bold flex-shrink-0 overflow-hidden ${
+                  isOwn ? 'ring-1 ring-secondary/50' : ''
+                }`}
+                style={{ backgroundColor: msg.sender?.avatarColor || '#b3004e' }}
+              >
+                {msg.sender?.avatarUrl ? (
+                  <img src={msg.sender.avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  msg.sender?.nickname?.charAt(0).toUpperCase() || 'U'
+                )}
+              </div>
+              <div className="flex flex-col flex-1 overflow-hidden">
+                <div className="flex items-baseline gap-2 mb-0.5">
+                  <span className={`text-xs font-headline font-bold cursor-pointer ${isOwn ? 'text-secondary' : 'text-on-surface'}`}>
+                    {msg.sender?.nickname}
+                  </span>
+                  <span className="text-[10px] font-label text-on-surface-variant/70">
+                    {msg.timestamp}
+                  </span>
+                </div>
+
+                {msg.text && (
+                  <p className="text-sm text-on-surface leading-relaxed select-text break-words">
+                    {msg.text}
+                  </p>
+                )}
+
+                {/* Exibição de Imagem Anexada */}
+                {msg.image && (
+                  <div className="mt-2.5 max-w-sm sm:max-w-md rounded-lg overflow-hidden bg-surface-container shadow-lg group/img relative inline-block">
+                    <img
+                      src={msg.image}
+                      alt="Imagem enviada"
+                      onClick={() => setViewingImage(msg.image)}
+                      className="max-h-72 w-auto object-contain cursor-pointer group-hover/img:scale-[1.02] transition-transform duration-500"
+                    />
+                    <div
+                      onClick={() => setViewingImage(msg.image)}
+                      className="absolute top-2 right-2 bg-surface-container-lowest/80 hover:bg-surface-container-lowest text-secondary p-1.5 rounded opacity-0 group-hover/img:opacity-100 transition cursor-pointer"
+                      title="Ampliar Imagem"
+                    >
+                      <Maximize2 size={14} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Caixa de Entrada de Mensagem com Pré-visualização de Imagem */}
-      <div className="px-4 pb-4">
+      <div className="p-3 lg:p-4 bg-surface-container-low/90 backdrop-blur-md">
         {/* Preview da imagem selecionada antes de enviar */}
         {attachedImage && (
-          <div className="mb-2.5 relative inline-flex items-center bg-[#2b2d31] p-2 rounded-lg border border-[#3f4147] shadow-lg animate-in fade-in slide-in-from-bottom-2">
-            <img src={attachedImage} alt="Anexo" className="h-20 w-auto rounded object-contain bg-black/50" />
+          <div className="mb-2.5 relative inline-flex items-center bg-surface-container p-2 rounded-lg border border-secondary/30 shadow-lg animate-in fade-in slide-in-from-bottom-2">
+            <img src={attachedImage} alt="Anexo" className="h-20 w-auto rounded object-contain bg-surface-container-lowest" />
             <button
               type="button"
               onClick={() => setAttachedImage(null)}
-              className="absolute -top-2 -right-2 bg-[#ed4245] hover:bg-[#c03537] text-white rounded-full p-1 shadow transition cursor-pointer"
+              className="absolute -top-2 -right-2 bg-error hover:bg-error/80 text-on-error rounded-full p-1 shadow transition cursor-pointer"
               title="Remover Imagem"
             >
               <X size={12} />
             </button>
-            <span className="ml-2.5 text-xs text-white font-medium pr-1">Imagem pronta para envio</span>
+            <span className="ml-2.5 text-xs font-label text-secondary pr-1">Imagem pronta para envio</span>
           </div>
         )}
 
         <form
           onSubmit={handleSubmit}
-          className="bg-[#383a40] rounded-lg px-3 py-2.5 flex items-center space-x-2 shadow-inner"
+          className="rounded-xl bg-surface-container px-2.5 py-2 flex items-center gap-2 shadow-lg border border-transparent focus-within:border-primary/40 focus-within:shadow-[inset_0_0_12px_rgba(255,45,120,0.1)] transition"
         >
           {/* Botão + para Enviar Imagem */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="text-discord-muted hover:text-white p-1 hover:bg-[#4e5058]/40 rounded-full transition cursor-pointer flex-shrink-0"
+            className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0"
             title="Enviar Imagem (+)"
           >
-            <PlusCircle size={22} className="text-[#b5bac1] hover:text-white" />
+            <Plus size={18} />
           </button>
           <input
             ref={fileInputRef}
@@ -230,21 +259,22 @@ export default function ChatArea({
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onPaste={handlePaste}
-            placeholder={`Conversar em #${currentTextChannel?.name || 'chat-geral'} (Cole uma imagem com Ctrl+V ou clique no +)`}
-            className="bg-transparent flex-1 text-white text-sm focus:outline-none placeholder:text-discord-muted select-text"
+            placeholder={`Conversar em #${channelName} (Cole uma imagem com Ctrl+V ou clique no +)`}
+            className="bg-transparent flex-1 text-on-surface text-sm focus:outline-none placeholder:text-on-surface-variant/50 select-text"
           />
 
           <button
             type="submit"
             disabled={!inputText.trim() && !attachedImage}
-            className={`p-1.5 rounded transition flex-shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg font-headline font-bold text-xs flex items-center gap-1.5 transition-all flex-shrink-0 ${
               inputText.trim() || attachedImage
-                ? 'text-[#5865F2] hover:text-[#7983f5] cursor-pointer'
-                : 'text-discord-muted opacity-40 cursor-default'
+                ? 'bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container hover-glow-pink cursor-pointer'
+                : 'bg-surface-container-high text-on-surface-variant/50 cursor-default'
             }`}
             title="Enviar"
           >
-            <Send size={18} />
+            <span>Enviar</span>
+            <Send size={13} />
           </button>
         </form>
       </div>
@@ -253,28 +283,28 @@ export default function ChatArea({
       {viewingImage && (
         <div
           onClick={() => setViewingImage(null)}
-          className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-150"
+          className="fixed inset-0 bg-background/90 backdrop-blur-md z-50 flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-150"
         >
           <div className="relative max-w-5xl max-h-[90vh] flex flex-col items-center">
             <img
               src={viewingImage}
               alt="Visualização"
-              className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl border border-[#2b2d31]"
+              className="max-h-[85vh] max-w-full object-contain rounded-xl shadow-2xl border border-primary/30"
               onClick={(e) => e.stopPropagation()}
             />
-            <div className="mt-3 flex items-center space-x-3">
+            <div className="mt-3 flex items-center gap-3">
               <a
                 href={viewingImage}
                 download={`concord_image_${Date.now()}.jpg`}
                 onClick={(e) => e.stopPropagation()}
-                className="bg-[#2b2d31] hover:bg-[#35373c] text-white text-xs font-bold px-3 py-1.5 rounded flex items-center space-x-1.5 border border-[#3f4147] transition shadow"
+                className="bg-surface-container hover:bg-surface-container-high text-secondary text-xs font-headline font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-secondary/40 transition hover-glow-cyan"
               >
                 <Download size={14} />
                 <span>Baixar Original</span>
               </a>
               <button
                 onClick={() => setViewingImage(null)}
-                className="bg-[#ed4245] hover:bg-[#c03537] text-white text-xs font-bold px-3 py-1.5 rounded flex items-center space-x-1.5 transition shadow"
+                className="bg-error-container/60 hover:bg-error-container text-error text-xs font-headline font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition"
               >
                 <X size={14} />
                 <span>Fechar</span>

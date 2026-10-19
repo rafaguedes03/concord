@@ -22,14 +22,14 @@ export default function CreateChannelModal({ isOpen, defaultType = 'voice', onCl
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#313338] w-full max-w-md rounded-lg shadow-2xl border border-[#2b2d31] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="bg-surface-container w-full max-w-md rounded-xl border border-primary/30 shadow-[inset_0_0_12px_rgba(255,45,120,0.1),0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Cabeçalho */}
-        <div className="p-4 border-b border-[#2b2d31] flex items-center justify-between">
-          <h2 className="text-white font-bold text-lg">Criar Canal</h2>
+        <div className="p-4 border-b border-outline-variant/40 flex items-center justify-between">
+          <h2 className="text-on-surface font-headline font-bold text-lg">Criar Canal</h2>
           <button
             onClick={onClose}
-            className="text-discord-muted hover:text-white transition p-1"
+            className="text-on-surface-variant hover:text-on-surface transition p-1"
           >
             <X size={20} />
           </button>
@@ -37,14 +37,14 @@ export default function CreateChannelModal({ isOpen, defaultType = 'voice', onCl
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {error && (
-            <div className="bg-discord-red/20 text-discord-red text-xs p-2 rounded">
+            <div className="bg-error-container text-on-error-container text-xs p-2 rounded">
               {error}
             </div>
           )}
 
           {/* Seleção do Tipo de Canal */}
           <div>
-            <label className="block text-xs font-bold text-discord-text uppercase tracking-wider mb-2">
+            <label className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest mb-2">
               Tipo de Canal
             </label>
             <div className="space-y-2">
@@ -52,14 +52,14 @@ export default function CreateChannelModal({ isOpen, defaultType = 'voice', onCl
                 onClick={() => setType('voice')}
                 className={`p-3 rounded-lg border-2 flex items-center space-x-3 cursor-pointer transition ${
                   type === 'voice'
-                    ? 'border-[#5865F2] bg-[#2b2d31]'
-                    : 'border-[#1e1f22] bg-[#2b2d31]/50 hover:bg-[#2b2d31]'
+                    ? 'border-secondary bg-secondary-container/20 shadow-[0_0_12px_rgba(0,255,204,0.2)]'
+                    : 'border-outline-variant/40 bg-surface-container-low/50 hover:bg-surface-container-low'
                 }`}
               >
-                <Volume2 size={24} className={type === 'voice' ? 'text-[#5865F2]' : 'text-discord-muted'} />
+                <Volume2 size={24} className={type === 'voice' ? 'text-secondary' : 'text-on-surface-variant'} />
                 <div className="flex-1">
-                  <div className="text-sm font-bold text-white">Voz (Call)</div>
-                  <div className="text-xs text-discord-muted">
+                  <div className="text-sm font-headline font-bold text-on-surface">Voz (Call)</div>
+                  <div className="text-xs text-on-surface-variant">
                     Converse por voz, compartilhe tela a 720p 60FPS.
                   </div>
                 </div>
@@ -69,14 +69,14 @@ export default function CreateChannelModal({ isOpen, defaultType = 'voice', onCl
                 onClick={() => setType('text')}
                 className={`p-3 rounded-lg border-2 flex items-center space-x-3 cursor-pointer transition ${
                   type === 'text'
-                    ? 'border-[#5865F2] bg-[#2b2d31]'
-                    : 'border-[#1e1f22] bg-[#2b2d31]/50 hover:bg-[#2b2d31]'
+                    ? 'border-secondary bg-secondary-container/20 shadow-[0_0_12px_rgba(0,255,204,0.2)]'
+                    : 'border-outline-variant/40 bg-surface-container-low/50 hover:bg-surface-container-low'
                 }`}
               >
-                <Hash size={24} className={type === 'text' ? 'text-[#5865F2]' : 'text-discord-muted'} />
+                <Hash size={24} className={type === 'text' ? 'text-secondary' : 'text-on-surface-variant'} />
                 <div className="flex-1">
-                  <div className="text-sm font-bold text-white">Texto</div>
-                  <div className="text-xs text-discord-muted">
+                  <div className="text-sm font-headline font-bold text-on-surface">Texto</div>
+                  <div className="text-xs text-on-surface-variant">
                     Envie mensagens, links e avisos no chat.
                   </div>
                 </div>
@@ -86,7 +86,7 @@ export default function CreateChannelModal({ isOpen, defaultType = 'voice', onCl
 
           {/* Nome do Canal */}
           <div>
-            <label className="block text-xs font-bold text-discord-text uppercase tracking-wider mb-1.5">
+            <label className="block text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest mb-1.5">
               Nome do Canal
             </label>
             <input
@@ -96,7 +96,7 @@ export default function CreateChannelModal({ isOpen, defaultType = 'voice', onCl
               placeholder={type === 'voice' ? 'Ex: Jogos, Call 2, Squad' : 'Ex: bate-papo, memes'}
               autoFocus
               maxLength={40}
-              className="w-full bg-[#1e1f22] border border-[#2b2d31] focus:border-[#5865F2] rounded-md px-3.5 py-2 text-white text-sm focus:outline-none transition select-text"
+              className="w-full bg-surface-container-lowest border-0 border-b-2 border-outline-variant focus:border-primary focus:shadow-[0_6px_12px_-6px_rgba(255,45,120,0.5)] rounded-t-md placeholder:text-on-surface-variant/50 px-3.5 py-2 text-on-surface text-sm focus:outline-none transition select-text"
             />
           </div>
 
@@ -105,13 +105,13 @@ export default function CreateChannelModal({ isOpen, defaultType = 'voice', onCl
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-semibold text-white hover:underline transition"
+              className="px-4 py-2 rounded-lg text-sm font-headline font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-[#5865F2] hover:bg-[#4752c4] text-white rounded text-sm font-semibold transition shadow"
+              className="px-5 py-2 bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container hover-glow-pink rounded-lg font-headline text-sm font-semibold transition shadow"
             >
               Criar Canal
             </button>
