@@ -12,7 +12,7 @@ import SettingsModal from './components/SettingsModal';
 
 import { socketService } from './services/socket';
 import { LivekitEngine } from './services/livekitEngine';
-import { VoiceEngine } from './services/voiceEngine';
+import { VoiceEngine, normalizeNoiseMode } from './services/voiceEngine';
 import { ScreenEngine } from './services/screenEngine';
 import { soundEffects } from './services/soundEffects';
 
@@ -73,7 +73,7 @@ export default function App() {
   const savedNick = localStorage.getItem('dc_nickname') || '';
   const rawSavedServer = localStorage.getItem('dc_server') || '45.184.120.69:3002';
   const savedServer = rawSavedServer.replace(':3001', ':3002');
-  const savedNoiseMode = localStorage.getItem('dc_noise_mode') || 'deepfilter';
+  const savedNoiseMode = normalizeNoiseMode(localStorage.getItem('dc_noise_mode'));
   const savedNoiseEnabled = localStorage.getItem('dc_noise_enabled') !== 'false';
   const savedNoiseThreshold = parseInt(localStorage.getItem('dc_noise_threshold') || '15', 10);
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Mic, Volume2, Server, Tv, Check, Shield, Sliders, Sparkles, Camera, Copy, CheckCheck } from 'lucide-react';
+import { normalizeNoiseMode } from '../services/voiceEngine';
 
 export default function SettingsModal({
   isOpen,
@@ -17,7 +18,7 @@ export default function SettingsModal({
 }) {
   const [nickname, setNickname] = useState('');
   const [serverUrl, setServerUrl] = useState('');
-  const [mode, setMode] = useState(noiseMode);
+  const [mode, setMode] = useState(normalizeNoiseMode(noiseMode));
   const [noiseEnabled, setNoiseEnabled] = useState(noiseGateEnabled);
   const [noiseThreshold, setNoiseThreshold] = useState(noiseGateThreshold);
   const [micLevel, setMicLevel] = useState(0);
@@ -34,7 +35,7 @@ export default function SettingsModal({
     if (currentUser?.nickname) setNickname(currentUser.nickname);
     if (currentUser?.avatarUrl) setAvatarPreview(currentUser.avatarUrl);
     if (serverAddress) setServerUrl(serverAddress);
-    setMode(noiseMode);
+    setMode(normalizeNoiseMode(noiseMode));
     setNoiseEnabled(noiseGateEnabled);
     setNoiseThreshold(noiseGateThreshold);
   }, [currentUser, serverAddress, noiseMode, noiseGateEnabled, noiseGateThreshold, isOpen]);

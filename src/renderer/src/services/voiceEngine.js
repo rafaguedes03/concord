@@ -1,6 +1,10 @@
 // Motor de Áudio Direto via WebSocket estilo Discord
 // Som encorpado, processamento dinâmico (Compressor + EQ), latência ultra-baixa (~21ms) e zero cortes
 
+// Só existem dois modos: 'auto' (IA DeepFilterNet3) e 'manual' (Noise Gate).
+// 'deepfilter' era o padrão antigo salvo no localStorage e equivale ao modo IA.
+export const normalizeNoiseMode = (mode) => (mode === 'manual' ? 'manual' : 'auto');
+
 export class VoiceEngine {
   constructor(socket) {
     this.socket = socket;
@@ -51,9 +55,9 @@ export class VoiceEngine {
   // Inicia captura de microfone com cadeia de áudio profissional estilo Discord
   async startVoice(channelId, noiseMode = 'auto', noiseEnabled = true, noiseThresholdPercent = 15) {
     this.currentChannelId = channelId;
-    this.noiseMode = noiseMode || 'auto';
+    this.noiseMode = normalizeNoiseMode(noiseMode);
     this.noiseGateEnabled = noiseEnabled;
-    this.setNoiseSettings(noiseMode, noiseEnabled, noiseThresholdPercent);
+    this.setNoiseSettings(this.noiseMode, noiseEnabled, noiseThresholdPercent);
 
     try {
       const isAuto = this.noiseMode === 'auto';
@@ -167,33 +171,12 @@ export class VoiceEngine {
         this.silentGain.connect(this.audioContext.destination);
       }
 
-      // Conexão da cadeia completa com DeepFilterNet3 IA (WorkAdventure 48kHz Deep Learning)
-      let currentChainNode = this.sourceNode;
-      if (this.noiseMode === 'auto' || this.noiseMode === 'deepfilter') {
-        try {
-          const { createDeepFilterNetAudioWorklet } = await import('@workadventure/noise-suppression/deepfilternet');
-          const basePath = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
-          this.deepFilterWorklet = await createDeepFilterNetAudioWorklet(this.audioContext, {
-            moduleUrl: new URL('noise-suppression/processor.js', basePath).href,
-            wasmUrl: new URL('noise-suppression/df_bg.wasm', basePath).href,
-            modelUrl: new URL('noise-suppression/DeepFilterNet3_onnx.tar.gz', basePath).href,
-            speechAttenuationDb: 30,
-            pauseAttenuationDb: 48,
-            pauseGateLookaheadFrames: 1,
-            bypassUntilReady: true
-          });
-          currentChainNode.connect(this.deepFilterWorklet.node);
-          currentChainNode = this.deepFilterWorklet.node;
-          console.log('[VoiceEngine] DeepFilterNet3 IA ativado com sucesso!');
-        } catch (dfErr) {
-          console.warn('[VoiceEngine] DeepFilterNet3 fallback para filtros WebRTC:', dfErr);
-        }
-      }
-
-      currentChainNode.connect(this.highPassFilter);
+      // Cadeia: microfone -> [DeepFilterNet3 IA, só no modo auto] -> filtros -> compressor
+      this.sourceNode.connect(this.highPassFilter);
       this.highPassFilter.connect(this.warmthFilter);
       this.warmthFilter.connect(this.presenceFilter);
       this.presenceFilter.connect(this.compressorNode);
+      await this.applyNoiseRouting();
 
       return this.localStream;
     } catch (err) {
@@ -394,7 +377,11 @@ export class VoiceEngine {
   // Ajusta o modo de áudio e sensibilidade do Noise Gate
   setNoiseSettings(mode, enabled, thresholdPercent) {
     if (typeof mode === 'string') {
-      this.noiseMode = mode;
+      const nextMode = normalizeNoiseMode(mode);
+      const modeChanged = nextMode !== this.noiseMode;
+      this.noiseMode = nextMode;
+      // Trocar de modo no meio da chamada liga/desliga o DeepFilterNet3 sem reiniciar o microfone
+      if (modeChanged && this.sourceNode) this.applyNoiseRouting();
     }
     this.noiseGateEnabled = !!enabled;
     this.noiseThresholdPercent = thresholdPercent !== undefined ? thresholdPercent : 15;
@@ -412,6 +399,54 @@ export class VoiceEngine {
           echoCancellation: true
         }).catch(() => {});
       }
+    }
+  }
+
+  // Insere ou remove o DeepFilterNet3 da cadeia conforme o modo atual (em fila, para trocas rápidas não se atropelarem)
+  applyNoiseRouting() {
+    this.noiseRoutingTask = (this.noiseRoutingTask || Promise.resolve()).then(() => this.updateDeepFilterRouting());
+    return this.noiseRoutingTask;
+  }
+
+  async updateDeepFilterRouting() {
+    const source = this.sourceNode;
+    if (!source || !this.audioContext || !this.highPassFilter) return;
+    const wantAi = this.noiseMode === 'auto';
+
+    if (wantAi && !this.deepFilterWorklet) {
+      try {
+        const { createDeepFilterNetAudioWorklet } = await import('@workadventure/noise-suppression/deepfilternet');
+        const basePath = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
+        const worklet = await createDeepFilterNetAudioWorklet(this.audioContext, {
+          moduleUrl: new URL('noise-suppression/processor.js', basePath).href,
+          wasmUrl: new URL('noise-suppression/df_bg.wasm', basePath).href,
+          modelUrl: new URL('noise-suppression/DeepFilterNet3_onnx.tar.gz', basePath).href,
+          speechAttenuationDb: 30,
+          pauseAttenuationDb: 48,
+          pauseGateLookaheadFrames: 1,
+          bypassUntilReady: true
+        });
+        // A chamada pode ter sido encerrada ou o modo trocado enquanto o modelo carregava
+        if (this.sourceNode !== source || this.noiseMode !== 'auto') {
+          worklet.dispose();
+          return;
+        }
+        source.disconnect();
+        source.connect(worklet.node);
+        worklet.node.connect(this.highPassFilter);
+        this.deepFilterWorklet = worklet;
+        console.log('[VoiceEngine] DeepFilterNet3 IA ativado com sucesso!');
+      } catch (dfErr) {
+        console.warn('[VoiceEngine] DeepFilterNet3 fallback para filtros WebRTC:', dfErr);
+      }
+    } else if (!wantAi && this.deepFilterWorklet) {
+      const worklet = this.deepFilterWorklet;
+      this.deepFilterWorklet = null;
+      try { source.disconnect(); } catch (e) {}
+      try { worklet.node.disconnect(); } catch (e) {}
+      try { worklet.dispose(); } catch (e) {}
+      source.connect(this.highPassFilter);
+      console.log('[VoiceEngine] DeepFilterNet3 desativado (modo Noise Gate manual)');
     }
   }
 
