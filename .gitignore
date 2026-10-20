@@ -17,3 +17,7 @@ server/public/*.zip
 .DS_Store
 Thumbs.db
 server/public/*.deb
+
+# LiveKit (binário baixado por plataforma e config gerado pelo server.js)
+server/livekit.yaml
+server/bin/livekit-server

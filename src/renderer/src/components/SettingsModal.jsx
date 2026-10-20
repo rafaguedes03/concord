@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Mic, Volume2, Server, Tv, Check, Shield, Sliders, Sparkles, Camera, Copy, CheckCheck } from 'lucide-react';
-import { normalizeNoiseMode } from '../services/voiceEngine';
+import { normalizeNoiseMode } from '../services/voiceProcessor';
 
 export default function SettingsModal({
   isOpen,

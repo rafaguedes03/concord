@@ -12,6 +12,7 @@ echo ========================================================
 echo.
 echo [IP PUBLICO CONFIGURADO]: %SERVER_URL%
 echo [PORTA]: %PORT% (Aberta no roteador/firewall)
+echo [LIVEKIT]: TCP 7880 e 7881, UDP 7882 (Abertas no roteador/firewall)
 echo.
 echo ========================================================
 echo LINKS PARA SEUS AMIGOS:

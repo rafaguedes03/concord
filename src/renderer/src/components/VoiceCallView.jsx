@@ -14,6 +14,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import UserTile from './UserTile';
+import { STREAM_PRESETS } from '../services/livekitEngine';
 
 // Componente para renderizar individualmente a transmissão de cada participante
 function StreamCard({
@@ -21,19 +22,17 @@ function StreamCard({
   isSelf,
   localScreenStream,
   livekitEngine,
-  screenEngine,
-  streamMeta,
+  trackUpdateTick,
   streamVolume = 100,
   isStreamMuted = false,
   onStreamVolumeChange,
   onToggleStreamMute
 }) {
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showVolSlider, setShowVolSlider] = useState(false);
-  const [usingLiveKit, setUsingLiveKit] = useState(false);
+  const [hasVideo, setHasVideo] = useState(false);
 
   useEffect(() => {
     // 1. Preview local da minha tela
@@ -45,41 +44,21 @@ function StreamCard({
       };
     }
 
-    // 2. Transmissão do Amigo via LiveKit (Hardware GPU Video Track se disponível)
-    let liveKitTrack = null;
-    if (!isSelf && livekitEngine) {
-      const track = livekitEngine.remoteVideoTracks?.get(sharer.id);
-      if (track && videoRef.current) {
-        liveKitTrack = track;
-        setUsingLiveKit(true);
-        track.attach(videoRef.current);
-        videoRef.current.play().catch(() => {});
-      } else {
-        setUsingLiveKit(false);
-      }
+    // 2. Transmissão do amigo via LiveKit (track H.264 decodificada por hardware)
+    const track = !isSelf && livekitEngine ? livekitEngine.remoteVideoTracks?.get(sharer.id) : null;
+    const videoEl = videoRef.current;
+    if (!track || !videoEl) {
+      setHasVideo(false);
+      return undefined;
     }
 
-    // 3. Transmissão do Amigo via Motor Socket (Sempre ativo para garantir que todos vejam)
-    let removeListener = null;
-    if (!isSelf && screenEngine && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d', { alpha: false });
-      removeListener = screenEngine.addFrameListener((userId, bitmap) => {
-        if (userId === sharer.id && ctx) {
-          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-        }
-      });
-    }
-
+    track.attach(videoEl);
+    videoEl.play().catch(() => {});
+    setHasVideo(true);
     return () => {
-      if (liveKitTrack && videoRef.current) {
-        try { liveKitTrack.detach(videoRef.current); } catch (e) {}
-      }
-      if (removeListener) {
-        removeListener();
-      }
+      try { track.detach(videoEl); } catch (e) {}
     };
-  }, [isSelf, localScreenStream, sharer.id, livekitEngine, screenEngine]);
+  }, [isSelf, localScreenStream, sharer.id, livekitEngine, trackUpdateTick]);
 
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
@@ -90,31 +69,28 @@ function StreamCard({
     }
   };
 
-  const meta = streamMeta[sharer.id] || { width: 1280, height: 720, label: '720p 60 FPS', preset: '720p60' };
+  const presetKey = sharer.screenPreset in STREAM_PRESETS ? sharer.screenPreset : '720p60';
+  const meta = { preset: presetKey, label: STREAM_PRESETS[presetKey].name };
 
   return (
     <div
       ref={containerRef}
       className="relative flex-1 bg-surface-container-lowest rounded-2xl overflow-hidden flex items-center justify-center border border-primary/30 shadow-[inset_0_0_12px_rgba(255,45,120,0.1)] group min-h-0 min-w-0"
     >
-      {/* Canvas para recepção instantânea via Socket (100% garantido na porta 3002) */}
-      <canvas
-        ref={canvasRef}
-        width={meta.width}
-        height={meta.height}
-        style={{ display: (!isSelf && !usingLiveKit) ? 'block' : 'none' }}
-        className="absolute inset-0 w-full h-full object-contain"
-      />
-
-      {/* Video para Preview Local próprio ou LiveKit WebRTC */}
+      {/* Vídeo do preview local ou da transmissão recebida pelo LiveKit */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted
-        style={{ display: (isSelf || usingLiveKit) ? 'block' : 'none' }}
         className="absolute inset-0 w-full h-full object-contain pointer-events-none"
       />
+
+      {!isSelf && !hasVideo && (
+        <span className="absolute inset-0 flex items-center justify-center text-sm font-label text-on-surface-variant">
+          Carregando transmissão...
+        </span>
+      )}
 
       {/* Badge de Transmissão */}
       <div className="absolute top-3 left-3 flex items-center gap-3 z-10">
@@ -191,7 +167,7 @@ export default function VoiceCallView({
   speakingUsers = {},
   localScreenStream,
   livekitEngine,
-  screenEngine,
+  mediaState,
   onToggleMic,
   onToggleDeafen,
   onToggleScreenShare,
@@ -206,8 +182,7 @@ export default function VoiceCallView({
   streamMuted = {},
   noiseMode
 }) {
-  const [streamMeta, setStreamMeta] = useState({});
-  const [, setTrackUpdateTick] = useState(0);
+  const [trackUpdateTick, setTrackUpdateTick] = useState(0);
   const [gridEl, setGridEl] = useState(null);
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
 
@@ -237,42 +212,6 @@ export default function VoiceCallView({
   // Obter TODOS os usuários compartilhando tela
   const screenSharers = usersInCall.filter((u) => u.isScreenSharing);
 
-  // Escuta metadados de resolução/FPS para cada transmissor
-  useEffect(() => {
-    if (screenEngine) {
-      screenEngine.onShareStarted = (userId, meta) => {
-        let label = '720p 60 FPS';
-        if (meta.preset === '720p30') label = '720p 30 FPS';
-        if (meta.preset === '1080p60') label = '1080p 60 FPS';
-
-        setStreamMeta((prev) => ({
-          ...prev,
-          [userId]: {
-            preset: meta.preset || '720p60',
-            width: meta.width || 1280,
-            height: meta.height || 720,
-            label
-          }
-        }));
-      };
-    }
-  }, [screenEngine]);
-
-  // Sincroniza stream próprio
-  useEffect(() => {
-    if (currentUser?.isScreenSharing && screenEngine?.currentPresetKey) {
-      const p = screenEngine.currentPresetKey;
-      let label = '720p 60 FPS';
-      let w = 1280, h = 720;
-      if (p === '720p30') { label = '720p 30 FPS'; }
-      if (p === '1080p60') { label = '1080p 60 FPS'; w = 1920; h = 1080; }
-      setStreamMeta((prev) => ({
-        ...prev,
-        [currentUser.id]: { preset: p, width: w, height: h, label }
-      }));
-    }
-  }, [currentUser?.isScreenSharing, currentUser?.id, screenEngine?.currentPresetKey]);
-
   const isAiNoise = noiseMode && noiseMode !== 'manual';
 
   // Escolhe o número de colunas que gera o maior tile 16:9 cabendo na largura E na altura
@@ -300,9 +239,19 @@ export default function VoiceCallView({
               <Volume2 size={18} />
             </span>
             <span className="font-headline font-bold text-2xl text-on-surface truncate">{channel?.name || 'Geral'}</span>
-            <span className="font-label font-bold text-[11px] tracking-widest text-secondary glow-text-secondary uppercase flex-shrink-0">
-              LiveKit WebRTC
-            </span>
+            {mediaState === 'connected' ? (
+              <span className="font-label font-bold text-[11px] tracking-widest text-secondary glow-text-secondary uppercase flex-shrink-0">
+                LiveKit WebRTC
+              </span>
+            ) : mediaState === 'reconnecting' ? (
+              <span className="font-label font-bold text-[11px] tracking-widest text-error uppercase flex-shrink-0 animate-pulse">
+                Reconectando...
+              </span>
+            ) : (
+              <span className="font-label font-bold text-[11px] tracking-widest text-on-surface-variant uppercase flex-shrink-0 animate-pulse">
+                Conectando...
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-label">
             {noiseMode && (
@@ -344,8 +293,7 @@ export default function VoiceCallView({
                   isSelf={sharer.id === currentUser?.id}
                   localScreenStream={localScreenStream}
                   livekitEngine={livekitEngine}
-                  screenEngine={screenEngine}
-                  streamMeta={streamMeta}
+                  trackUpdateTick={trackUpdateTick}
                   streamVolume={streamVolumes[sharer.id] ?? 100}
                   isStreamMuted={!!streamMuted[sharer.id]}
                   onStreamVolumeChange={onStreamVolumeChange}

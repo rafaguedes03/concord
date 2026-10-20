@@ -7,11 +7,20 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const fs = require("fs");
+const crypto = require("crypto");
 const { spawn } = require("child_process");
 const { AccessToken } = require("livekit-server-sdk");
 
-const LIVEKIT_API_KEY = "devkey";
-const LIVEKIT_API_SECRET = "secret";
+// Credenciais e portas do LiveKit SFU, definidas em server/.env
+// Sem secret no .env, gera um aleatório a cada início (o LiveKit exige no mínimo 32 caracteres)
+const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || "concord";
+const LIVEKIT_API_SECRET =
+  process.env.LIVEKIT_API_SECRET || crypto.randomBytes(32).toString("hex");
+const LIVEKIT_PORT = parseInt(process.env.LIVEKIT_PORT || "7880", 10);
+const LIVEKIT_TCP_PORT = parseInt(process.env.LIVEKIT_TCP_PORT || "7881", 10);
+const LIVEKIT_UDP_PORT = parseInt(process.env.LIVEKIT_UDP_PORT || "7882", 10);
+// URL opcional que os apps usam para chegar no LiveKit (ex.: host sem proxy do Cloudflare)
+const LIVEKIT_URL = process.env.LIVEKIT_URL || "";
 let livekitProcess = null;
 
 const app = express();
@@ -24,7 +33,7 @@ const io = new Server(server, {
     origin: "*",
     methods: ["GET", "POST"],
   },
-  maxHttpBufferSize: 1e8, // 100MB for data transfer if needed
+  maxHttpBufferSize: 1e7, // 10MB: suficiente para imagens do chat (mídia vai pelo LiveKit)
 });
 
 const PORT = process.env.PORT || 3002;
@@ -434,37 +443,16 @@ io.on("connection", (socket) => {
 
       const token = await at.toJwt();
 
-      let host = "localhost";
-      const clientIp = socket.handshake.address || socket.conn?.remoteAddress;
-      const isLocalClient =
-        clientIp === "127.0.0.1" ||
-        clientIp === "::1" ||
-        clientIp === "::ffff:127.0.0.1" ||
-        clientIp?.includes("192.168.");
-
-      if (isLocalClient) {
-        host =
-          clientIp === "127.0.0.1" ||
-          clientIp === "::1" ||
-          clientIp === "::ffff:127.0.0.1"
-            ? "localhost"
-            : "192.168.4.2";
-      } else if (
-        socket.handshake &&
-        socket.handshake.headers &&
-        socket.handshake.headers.host
-      ) {
-        host = socket.handshake.headers.host.split(":")[0];
-      }
-
       console.log(
         `[LiveKit] Token gerado para ${nickname} (${identity}) na sala ${channelId}`,
       );
+      // O cliente monta a URL com o mesmo host que usou para chegar neste servidor
       if (typeof callback === "function") {
         callback({
           success: true,
           token,
-          livekitUrl: `ws://${host}:7880`,
+          livekitUrl: LIVEKIT_URL || null,
+          livekitPort: LIVEKIT_PORT,
         });
       }
     } catch (err) {
@@ -521,41 +509,6 @@ io.on("connection", (socket) => {
     io.emit("user-updated", user);
   });
 
-  // Indicador de fala (Speaking / Voice Activity)
-  socket.on("speaking-state", ({ isSpeaking }) => {
-    const user = users.get(socket.id);
-    if (!user || !user.currentVoiceChannel) return;
-
-    socket.to(user.currentVoiceChannel).emit("user-speaking", {
-      userId: socket.id,
-      isSpeaking,
-    });
-  });
-
-  // ==================== RELAY DIRETO WEBSOCKET (PORTA 3001) ====================
-  // Garante 100% de funcionamento sem depender de portas UDP ou NAT/CGNAT
-
-  // Relay de Áudio de Voz via WebSocket
-  socket.on("voice-frame", ({ channelId, data }) => {
-    if (!channelId || !data) return;
-    socket.to(channelId).emit("voice-frame", {
-      userId: socket.id,
-      data,
-    });
-  });
-
-  // Relay de Transmissão de Tela via WebSocket (Volatile: descarta frames acumulados sem travar a rede)
-  socket.on("screen-frame", ({ channelId, frame, timestamp }) => {
-    const user = users.get(socket.id);
-    const targetChannel = channelId || user?.currentVoiceChannel;
-    if (!targetChannel || !frame) return;
-    socket.to(targetChannel).volatile.emit("screen-frame", {
-      userId: socket.id,
-      frame,
-      timestamp: timestamp || Date.now(),
-    });
-  });
-
   // Notificação de início de compartilhamento com resolução e FPS
   socket.on(
     "start-screen-share",
@@ -563,6 +516,7 @@ io.on("connection", (socket) => {
       const user = users.get(socket.id);
       if (user) {
         user.isScreenSharing = true;
+        user.screenPreset = preset || null;
         io.emit("user-updated", user);
       }
       const targetChannel = channelId || user?.currentVoiceChannel;
@@ -577,17 +531,6 @@ io.on("connection", (socket) => {
     },
   );
 
-  // Relay de Áudio da Transmissão de Tela (som do sistema/jogos)
-  socket.on("screen-audio-frame", ({ channelId, data }) => {
-    const user = users.get(socket.id);
-    const targetChannel = channelId || user?.currentVoiceChannel;
-    if (!targetChannel || !data) return;
-    socket.to(targetChannel).emit("screen-audio-frame", {
-      userId: socket.id,
-      data,
-    });
-  });
-
   // Parar Transmissão de Tela
   socket.on("stop-screen-share", ({ channelId }) => {
     const user = users.get(socket.id);
@@ -601,36 +544,6 @@ io.on("connection", (socket) => {
         .to(targetChannel)
         .emit("screen-share-stopped", { userId: socket.id });
     }
-  });
-
-  // ==================== SINALIZAÇÃO WEBRTC ====================
-
-  // Envio de Offer (Oferta SDP)
-  socket.on("webrtc-offer", ({ to, offer, streamType }) => {
-    // streamType pode ser 'audio' ou 'screen'
-    io.to(to).emit("webrtc-offer", {
-      from: socket.id,
-      offer,
-      streamType,
-    });
-  });
-
-  // Envio de Answer (Resposta SDP)
-  socket.on("webrtc-answer", ({ to, answer, streamType }) => {
-    io.to(to).emit("webrtc-answer", {
-      from: socket.id,
-      answer,
-      streamType,
-    });
-  });
-
-  // Envio de ICE Candidate
-  socket.on("webrtc-ice-candidate", ({ to, candidate, streamType }) => {
-    io.to(to).emit("webrtc-ice-candidate", {
-      from: socket.id,
-      candidate,
-      streamType,
-    });
   });
 
   // ==================== CHAT DE TEXTO ====================
@@ -703,67 +616,106 @@ io.on("connection", (socket) => {
   });
 });
 
-function startLiveKitServer() {
-  const livekitPath = path.join(__dirname, "bin", "livekit-server.exe");
-  if (fs.existsSync(livekitPath)) {
-    console.log(
-      "[LiveKit] Iniciando LiveKit WebRTC SFU na porta 7880 (UDP 7882)...",
-    );
-    try {
-      livekitProcess = spawn(
-        livekitPath,
-        ["--bind", "0.0.0.0", "--dev", "--udp-port", "7882"],
-        {
-          stdio: ["ignore", "pipe", "pipe"],
-        },
-      );
-
-      livekitProcess.stdout.on("data", (data) => {
-        const text = data.toString();
-        if (
-          text.includes("starting LiveKit server") ||
-          text.includes("using single-node")
-        ) {
-          console.log("[LiveKit] SFU WebRTC ativo e pronto para chamadas!");
-        }
-      });
-
-      livekitProcess.stderr.on("data", (data) => {
-        const text = data.toString();
-        if (text.includes("starting LiveKit server")) {
-          console.log("[LiveKit] SFU WebRTC ativo e pronto para chamadas!");
-        }
-      });
-
-      livekitProcess.on("exit", (code) => {
-        console.log(`[LiveKit] Processo encerrou com código ${code}`);
-      });
-    } catch (err) {
-      console.error("[LiveKit] Erro ao iniciar processo livekit-server:", err);
-    }
-
-    const cleanup = () => {
-      if (livekitProcess) {
-        try {
-          livekitProcess.kill();
-        } catch (e) {}
-        livekitProcess = null;
-      }
-    };
-    process.on("exit", cleanup);
-    process.on("SIGINT", () => {
-      cleanup();
-      process.exit();
-    });
-    process.on("SIGTERM", () => {
-      cleanup();
-      process.exit();
-    });
-  } else {
-    console.warn(
-      "[LiveKit] Executável não encontrado em server/bin/livekit-server.exe",
-    );
+// Gera o arquivo de configuração do LiveKit a partir do server/.env
+function writeLiveKitConfig() {
+  const lines = [
+    "# Gerado automaticamente pelo server.js a partir do server/.env - não edite",
+    `port: ${LIVEKIT_PORT}`,
+    "bind_addresses:",
+    '  - "0.0.0.0"',
+    "rtc:",
+    `  tcp_port: ${LIVEKIT_TCP_PORT}`,
+    `  udp_port: ${LIVEKIT_UDP_PORT}`,
+    `  use_external_ip: ${process.env.LIVEKIT_USE_EXTERNAL_IP === "true"}`,
+  ];
+  if (process.env.LIVEKIT_NODE_IP) {
+    lines.push(`  node_ip: ${process.env.LIVEKIT_NODE_IP}`);
   }
+  lines.push(
+    "keys:",
+    `  ${JSON.stringify(LIVEKIT_API_KEY)}: ${JSON.stringify(LIVEKIT_API_SECRET)}`,
+    "logging:",
+    "  level: info",
+    "",
+  );
+
+  const configPath = path.join(__dirname, "livekit.yaml");
+  fs.writeFileSync(configPath, lines.join("\n"));
+  return configPath;
+}
+
+function startLiveKitServer() {
+  // Binário em server/bin (livekit-server.exe no Windows, livekit-server no Linux) ou no PATH
+  const binName =
+    process.platform === "win32" ? "livekit-server.exe" : "livekit-server";
+  const localBin = path.join(__dirname, "bin", binName);
+  const livekitPath = fs.existsSync(localBin) ? localBin : binName;
+
+  const configPath = writeLiveKitConfig();
+  console.log(
+    `[LiveKit] Iniciando LiveKit SFU (${livekitPath}) - TCP ${LIVEKIT_PORT}/${LIVEKIT_TCP_PORT}, UDP ${LIVEKIT_UDP_PORT}...`,
+  );
+
+  try {
+    livekitProcess = spawn(livekitPath, ["--config", configPath], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (err) {
+    console.error("[LiveKit] Erro ao iniciar processo livekit-server:", err);
+    return;
+  }
+
+  const onOutput = (data) => {
+    const text = data.toString();
+    if (
+      text.includes("starting LiveKit server") ||
+      text.includes("using single-node")
+    ) {
+      console.log("[LiveKit] SFU WebRTC ativo e pronto para chamadas!");
+    }
+    if (/\b(ERROR|error|FATAL|fatal)\b/.test(text)) {
+      console.error(`[LiveKit] ${text.trim()}`);
+    }
+  };
+  livekitProcess.stdout.on("data", onOutput);
+  livekitProcess.stderr.on("data", onOutput);
+
+  livekitProcess.on("error", (err) => {
+    livekitProcess = null;
+    if (err.code === "ENOENT") {
+      console.error(
+        `[LiveKit] Executável não encontrado. Baixe o livekit-server para ${process.platform} em https://github.com/livekit/livekit/releases e coloque em server/bin/${binName}`,
+      );
+    } else {
+      console.error("[LiveKit] Erro no processo livekit-server:", err);
+    }
+    console.error(
+      "[LiveKit] Sem o LiveKit não há voz nem transmissão de tela (o chat continua funcionando).",
+    );
+  });
+
+  livekitProcess.on("exit", (code) => {
+    console.log(`[LiveKit] Processo encerrou com código ${code}`);
+    livekitProcess = null;
+  });
+
+  const cleanup = () => {
+    if (livekitProcess) {
+      try {
+        livekitProcess.kill();
+      } catch (e) {}
+      livekitProcess = null;
+    }
+  };
+  process.on("exit", cleanup);
+  process.on("SIGINT", () => {
+    cleanup();
+    process.exit();
+  });
+  process.on("SIGTERM", () => {
+    cleanup();
+    process.exit();
+  });
 }
 
 server.listen(PORT, "0.0.0.0", () => {

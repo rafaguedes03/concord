@@ -11,12 +11,34 @@ import ScreenSharePicker from './components/ScreenSharePicker';
 import SettingsModal from './components/SettingsModal';
 
 import { socketService } from './services/socket';
-import { LivekitEngine } from './services/livekitEngine';
-import { VoiceEngine, normalizeNoiseMode } from './services/voiceEngine';
-import { ScreenEngine } from './services/screenEngine';
+import { LivekitEngine, STREAM_PRESETS } from './services/livekitEngine';
+import { normalizeNoiseMode } from './services/voiceProcessor';
 import { soundEffects } from './services/soundEffects';
 
 const CURRENT_APP_VERSION = '1.5.1';
+
+// Tempo que a call fica "segurando" a vaga enquanto o socket de sinalização tenta voltar
+const SOCKET_DROP_GRACE_MS = 15000;
+const MEDIA_RETRY_ATTEMPTS = 3;
+
+// O LiveKit roda no mesmo host do servidor Concord, na porta informada por ele
+function buildLivekitUrl(serverAddress, port) {
+  const raw = (serverAddress || '').trim();
+  const withProtocol = /^https?:\/\//.test(raw) ? raw : `http://${raw}`;
+  const parsed = new URL(withProtocol);
+  const wsProtocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${wsProtocol}//${parsed.hostname}:${port || 7880}`;
+}
+
+// emit com confirmação e timeout (evita promessas penduradas se o servidor não responder)
+function emitWithAck(socket, event, payload, timeoutMs = 6000) {
+  return new Promise((resolve, reject) => {
+    socket.timeout(timeoutMs).emit(event, payload, (err, res) => {
+      if (err) reject(new Error(`Servidor não respondeu a "${event}"`));
+      else resolve(res);
+    });
+  });
+}
 
 // Error Boundary para evitar que qualquer erro no React deixe a tela cinza
 class ErrorBoundary extends Component {
@@ -118,6 +140,8 @@ export default function App() {
   const [streamVolumes, setStreamVolumes] = useState({});
   const [streamMuted, setStreamMuted] = useState({});
   const [localScreenStream, setLocalScreenStream] = useState(null);
+  // Estado da conexão de mídia (LiveKit): null | 'connecting' | 'connected' | 'reconnecting'
+  const [mediaState, setMediaState] = useState(null);
 
   // Atualização Automática
   const [updateStatus, setUpdateStatus] = useState({
@@ -136,23 +160,57 @@ export default function App() {
   const [isScreenPickerOpen, setIsScreenPickerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Referências dos Motores de Áudio e Vídeo (LiveKit WebRTC + WebSocket Fallback)
+  // Motor de mídia único: voz e tela via LiveKit WebRTC (o socket fica só para sinalização e chat)
   const livekitEngineRef = useRef(new LivekitEngine());
-  const voiceEngineRef = useRef(null);
-  const screenEngineRef = useRef(null);
+
+  // Refs lidas pelos handlers de socket/LiveKit registrados uma única vez (evita closures desatualizadas)
+  const currentVoiceChannelRef = useRef(null);
+  const currentUserRef = useRef(null);
+  const serverAddressRef = useRef(savedServer);
+  const noiseSettingsRef = useRef({
+    mode: savedNoiseMode,
+    gateEnabled: savedNoiseEnabled,
+    thresholdPercent: savedNoiseThreshold
+  });
+  const socketDropTimerRef = useRef(null);
+  const isJoiningVoiceRef = useRef(false);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
 
   // Inicialização, conexão e monitoramento automático de novas versões
   useEffect(() => {
-    // Configura detecção de fala em tempo real do LiveKit
-    if (livekitEngineRef.current) {
-      livekitEngineRef.current.onActiveSpeakersChanged = (speakerIds) => {
-        const map = {};
-        for (const id of speakerIds) {
-          map[id] = true;
-        }
-        setSpeakingUsers(map);
-      };
-    }
+    const livekitEngine = livekitEngineRef.current;
+
+    // Detecção de fala em tempo real do LiveKit (inclui o próprio usuário)
+    livekitEngine.onActiveSpeakersChanged = (speakerIds) => {
+      const map = {};
+      for (const id of speakerIds) {
+        map[id] = true;
+      }
+      setSpeakingUsers(map);
+    };
+
+    livekitEngine.onConnectionStateChange = (state) => {
+      if (state === 'reconnecting') {
+        setMediaState('reconnecting');
+      } else if (state === 'connected') {
+        setMediaState('connected');
+      } else if (state === 'disconnected') {
+        // O SDK desistiu de reconectar: busca um token novo e entra de novo na sala
+        const channel = currentVoiceChannelRef.current;
+        if (!channel) return;
+        markScreenShareStopped();
+        setMediaState('reconnecting');
+        retryMediaConnection(channel, 1);
+      }
+    };
+
+    // Usuário encerrou a captura pelo sistema operacional (ex.: "Parar compartilhamento")
+    livekitEngine.onLocalScreenShareEnded = () => {
+      markScreenShareStopped();
+    };
 
     if (savedNick && savedServer) {
       handleConnect(savedNick, savedServer);
@@ -167,9 +225,8 @@ export default function App() {
 
     return () => {
       clearInterval(updateTimer);
-      if (livekitEngineRef.current) livekitEngineRef.current.disconnect();
-      if (voiceEngineRef.current) voiceEngineRef.current.stopVoice();
-      if (screenEngineRef.current) screenEngineRef.current.stopShare();
+      clearTimeout(socketDropTimerRef.current);
+      livekitEngine.disconnect();
       socketService.disconnect();
     };
   }, []);
@@ -254,32 +311,27 @@ export default function App() {
     localStorage.setItem('dc_nickname', nickname);
     localStorage.setItem('dc_server', serverUrl);
     setServerAddress(serverUrl);
+    serverAddressRef.current = serverUrl;
 
     checkForUpdates(serverUrl);
 
+    // Trocar de servidor encerra a call atual (o canal pertence ao servidor antigo)
+    if (currentVoiceChannelRef.current) {
+      leaveVoiceLocally();
+    }
+
     const socket = socketService.connect(serverUrl);
-
-    const voiceEngine = new VoiceEngine(socket);
-    voiceEngineRef.current = voiceEngine;
-
-    const screenEngine = new ScreenEngine(socket);
-    screenEngineRef.current = screenEngine;
-
-    // Atualiza anel verde de fala para o próprio usuário
-    voiceEngine.onSpeakingChange = (isSpeaking) => {
-      if (socket.id) {
-        setSpeakingUsers((prev) => ({
-          ...prev,
-          [socket.id]: isSpeaking
-        }));
-      }
-    };
 
     socket.on('connect', () => {
       setConnected(true);
       socket.emit('join-server', { nickname, userId: persistentUserId, avatarUrl: userAvatar }, (response) => {
         if (response) {
-          setCurrentUser(response.self);
+          const previousUser = currentUserRef.current;
+          setCurrentUser(
+            previousUser
+              ? { ...response.self, isMuted: previousUser.isMuted, isDeafened: previousUser.isDeafened }
+              : response.self
+          );
           setChannels(response.channels || []);
           setUsers(response.users || []);
 
@@ -291,15 +343,40 @@ export default function App() {
           loadChannelMessages(defaultText.id);
 
           setIsConnectModalOpen(false);
+
+          // Socket voltou depois de uma queda: entra de novo na mesma call automaticamente
+          const channelToRejoin = currentVoiceChannelRef.current;
+          if (channelToRejoin) {
+            clearTimeout(socketDropTimerRef.current);
+            if (previousUser && (previousUser.isMuted || previousUser.isDeafened)) {
+              socket.emit('update-user-state', {
+                isMuted: !!previousUser.isMuted,
+                isDeafened: !!previousUser.isDeafened
+              });
+            }
+            console.log(`[App] Reconectado ao servidor, voltando para a call ${channelToRejoin.id}...`);
+            joinVoiceChannel(channelToRejoin, { isRejoin: true });
+          }
         }
       });
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
       setConnected(false);
-      setCurrentVoiceChannel(null);
-      if (voiceEngineRef.current) voiceEngineRef.current.stopVoice();
-      if (screenEngineRef.current) screenEngineRef.current.stopShare();
+      // Saída intencional (troca de servidor/fechar app) não segura a call
+      if (reason === 'io client disconnect') return;
+      if (currentVoiceChannelRef.current) {
+        // A mídia do LiveKit segue funcionando; damos um tempo para o socket voltar antes de encerrar a call
+        setMediaState('reconnecting');
+        clearTimeout(socketDropTimerRef.current);
+        socketDropTimerRef.current = setTimeout(() => {
+          if (!socketService.getSocket()?.connected && currentVoiceChannelRef.current) {
+            console.warn('[App] Servidor não voltou a tempo, encerrando a call');
+            leaveVoiceLocally();
+            soundEffects.playLeaveCall();
+          }
+        }, SOCKET_DROP_GRACE_MS);
+      }
     });
 
     // Atualizações de usuários e canais
@@ -329,15 +406,9 @@ export default function App() {
 
     socket.on('channel-deleted', ({ channelId }) => {
       setChannels((prev) => prev.filter((c) => c.id !== channelId));
-      setCurrentVoiceChannel((prev) => {
-        if (prev?.id === channelId) {
-          if (voiceEngineRef.current) voiceEngineRef.current.stopVoice();
-          if (screenEngineRef.current) screenEngineRef.current.stopShare();
-          setActiveView('chat');
-          return null;
-        }
-        return prev;
-      });
+      if (currentVoiceChannelRef.current?.id === channelId) {
+        leaveVoiceLocally();
+      }
       setCurrentTextChannel((prev) => {
         if (prev?.id === channelId) {
           return null;
@@ -352,14 +423,6 @@ export default function App() {
       setUsers((prev) => [...prev.filter((u) => u.id !== user.id), user]);
     });
 
-    // Indicador visual de quem está falando (borda verde)
-    socket.on('user-speaking', ({ userId, isSpeaking }) => {
-      setSpeakingUsers((prev) => ({
-        ...prev,
-        [userId]: isSpeaking
-      }));
-    });
-
     socket.on('user-state-changed', ({ userId, isMuted, isDeafened, isScreenSharing }) => {
       setUsers((prev) =>
         prev.map((u) =>
@@ -369,9 +432,9 @@ export default function App() {
     });
 
     // Notificações de transmissão de tela para enquadrar perfeitamente para todos
-    socket.on('screen-share-started', ({ userId }) => {
+    socket.on('screen-share-started', ({ userId, preset }) => {
       setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, isScreenSharing: true } : u))
+        prev.map((u) => (u.id === userId ? { ...u, isScreenSharing: true, screenPreset: preset } : u))
       );
     });
 
@@ -379,17 +442,6 @@ export default function App() {
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, isScreenSharing: false } : u))
       );
-    });
-
-    // Recebimento de frame também assegura que a tela seja exibida mesmo se o evento start foi perdido
-    socket.on('screen-frame', ({ userId }) => {
-      setUsers((prev) => {
-        const target = prev.find((u) => u.id === userId);
-        if (target && !target.isScreenSharing) {
-          return prev.map((u) => (u.id === userId ? { ...u, isScreenSharing: true } : u));
-        }
-        return prev;
-      });
     });
 
     // Mensagens de texto
@@ -422,10 +474,104 @@ export default function App() {
     }
   };
 
+  // Conecta a mídia (LiveKit) do canal: token -> sala -> microfone com o processador de voz
+  const connectMedia = async (channel) => {
+    const socket = socketService.getSocket();
+    const livekitEngine = livekitEngineRef.current;
+    if (!socket?.connected) throw new Error('Sem conexão com o servidor');
+
+    const tokenRes = await emitWithAck(socket, 'get-livekit-token', { channelId: channel.id });
+    if (!tokenRes?.success) {
+      throw new Error(tokenRes?.error || 'Servidor não gerou o token do LiveKit');
+    }
+
+    const livekitUrl = tokenRes.livekitUrl || buildLivekitUrl(serverAddressRef.current, tokenRes.livekitPort);
+    await livekitEngine.connect(livekitUrl, tokenRes.token, channel.id);
+
+    const user = currentUserRef.current;
+    await livekitEngine.setMuted(!!user?.isMuted);
+    livekitEngine.setDeafened(!!user?.isDeafened);
+
+    // Sem microfone (permissão negada/dispositivo ausente) a pessoa ainda ouve e assiste a call
+    try {
+      await livekitEngine.startMicrophone(noiseSettingsRef.current);
+    } catch (micErr) {
+      console.error('Erro ao acessar microfone:', micErr);
+    }
+
+    setMediaState('connected');
+    console.log('[App] Mídia conectada via LiveKit SFU');
+  };
+
+  // Nova tentativa de mídia após o LiveKit desistir de reconectar sozinho
+  const retryMediaConnection = (channel, attempt) => {
+    setTimeout(async () => {
+      if (currentVoiceChannelRef.current?.id !== channel.id) return;
+      // Se o socket caiu junto, o rejoin acontece quando ele voltar
+      if (!socketService.getSocket()?.connected) return;
+      try {
+        await connectMedia(channel);
+      } catch (err) {
+        console.warn(`[App] Tentativa ${attempt} de reconectar a mídia falhou:`, err);
+        if (attempt < MEDIA_RETRY_ATTEMPTS) {
+          retryMediaConnection(channel, attempt + 1);
+        } else {
+          handleLeaveVoice();
+          alert('A conexão de voz caiu e não foi possível reconectar. Entre na call novamente.');
+        }
+      }
+    }, 1500 * attempt);
+  };
+
+  // Entra no canal de voz: presença no servidor + mídia no LiveKit
+  const joinVoiceChannel = async (channel, { isRejoin = false } = {}) => {
+    const socket = socketService.getSocket();
+    if (!socket?.connected || isJoiningVoiceRef.current) return;
+    isJoiningVoiceRef.current = true;
+
+    const livekitEngine = livekitEngineRef.current;
+    try {
+      await livekitEngine.disconnect();
+      markScreenShareStopped();
+      setMediaState(isRejoin ? 'reconnecting' : 'connecting');
+
+      const joinRes = await emitWithAck(socket, 'join-voice-channel', { channelId: channel.id });
+      if (!joinRes?.success) throw new Error('O servidor recusou a entrada no canal');
+
+      currentVoiceChannelRef.current = channel;
+      setCurrentVoiceChannel(channel);
+      setCurrentUser((prev) => ({ ...prev, currentVoiceChannel: channel.id, isScreenSharing: false }));
+      if (Array.isArray(joinRes.usersInRoom)) {
+        setUsers((prev) => {
+          const map = new Map(prev.map((u) => [u.id, u]));
+          for (const rUser of joinRes.usersInRoom) {
+            map.set(rUser.id, { ...(map.get(rUser.id) || {}), ...rUser });
+          }
+          return Array.from(map.values());
+        });
+      }
+      if (!isRejoin) {
+        setActiveView('call');
+      }
+
+      await connectMedia(channel);
+      if (!isRejoin) soundEffects.playJoinCall();
+    } catch (err) {
+      console.error('[App] Falha ao entrar na call:', err);
+      handleLeaveVoice();
+      alert(
+        'Não foi possível conectar a voz: ' + err.message +
+        '\n\nVerifique se o servidor está com o LiveKit ativo e com as portas TCP 7880/7881 e UDP 7882 liberadas' +
+        ' (se o domínio passa pelo proxy do Cloudflare, configure LIVEKIT_URL no server/.env).'
+      );
+    } finally {
+      isJoiningVoiceRef.current = false;
+    }
+  };
+
   // Entrar em um canal de voz
   const handleSelectVoiceChannel = async (channel) => {
-    const socket = socketService.getSocket();
-    if (!socket || !connected) return;
+    if (!connected) return;
 
     // Se já está nesta call, alterna a tela para a chamada
     if (currentVoiceChannel?.id === channel.id) {
@@ -433,78 +579,31 @@ export default function App() {
       return;
     }
 
-    if (livekitEngineRef.current) {
-      await livekitEngineRef.current.disconnect();
-    }
-    if (voiceEngineRef.current) {
-      voiceEngineRef.current.stopVoice();
-    }
-    if (screenEngineRef.current && currentUser?.isScreenSharing) {
-      screenEngineRef.current.stopShare();
-      setLocalScreenStream(null);
-    }
+    await joinVoiceChannel(channel);
+  };
 
-    // Inicia SEMPRE o motor de áudio estável na porta 3002 (para que TODOS os participantes conversem na mesma sala)
-    if (voiceEngineRef.current) {
-      try {
-        await voiceEngineRef.current.startVoice(
-          channel.id,
-          noiseMode,
-          noiseGateEnabled,
-          noiseGateThreshold
-        );
-      } catch (err) {
-        console.error('Erro ao acessar microfone:', err);
-      }
-    }
-
-    // Tenta também conectar ao LiveKit SFU em segundo plano se disponível
-    socket.emit('get-livekit-token', { channelId: channel.id }, async (tokenRes) => {
-      if (tokenRes?.success && livekitEngineRef.current) {
-        try {
-          await livekitEngineRef.current.connect(tokenRes.livekitUrl, tokenRes.token, channel.id);
-          console.log('[App] Conectado via LiveKit SFU');
-        } catch (lkErr) {
-          console.warn('[App] LiveKit indisponível externamente, mantendo motor na porta 3002:', lkErr);
-        }
-      }
-    });
-
-    socket.emit('join-voice-channel', { channelId: channel.id }, ({ success, usersInRoom }) => {
-      if (success) {
-        setCurrentVoiceChannel(channel);
-        setCurrentUser((prev) => ({ ...prev, currentVoiceChannel: channel.id }));
-        if (usersInRoom && Array.isArray(usersInRoom)) {
-          setUsers((prev) => {
-            const map = new Map(prev.map((u) => [u.id, u]));
-            for (const rUser of usersInRoom) {
-              map.set(rUser.id, { ...(map.get(rUser.id) || {}), ...rUser });
-            }
-            return Array.from(map.values());
-          });
-        }
-        setActiveView('call');
-        soundEffects.playJoinCall();
-      }
-    });
+  // Limpa a call no cliente (sem depender do servidor responder)
+  const leaveVoiceLocally = () => {
+    currentVoiceChannelRef.current = null;
+    clearTimeout(socketDropTimerRef.current);
+    livekitEngineRef.current.disconnect();
+    setCurrentVoiceChannel(null);
+    setCurrentUser((prev) => (prev ? { ...prev, currentVoiceChannel: null, isScreenSharing: false } : prev));
+    setLocalScreenStream(null);
+    setSpeakingUsers({});
+    setMediaState(null);
+    setActiveView('chat');
   };
 
   // Sair do canal de voz
   const handleLeaveVoice = () => {
+    const wasInCall = !!currentVoiceChannelRef.current;
+    leaveVoiceLocally();
     const socket = socketService.getSocket();
-    if (socket) {
-      socket.emit('leave-voice-channel', () => {
-        soundEffects.playLeaveCall();
-        setCurrentVoiceChannel(null);
-        setCurrentUser((prev) => ({ ...prev, currentVoiceChannel: null, isScreenSharing: false }));
-        setActiveView('chat');
-
-        if (livekitEngineRef.current) livekitEngineRef.current.disconnect();
-        if (voiceEngineRef.current) voiceEngineRef.current.stopVoice();
-        if (screenEngineRef.current) screenEngineRef.current.stopShare();
-        setLocalScreenStream(null);
-      });
+    if (socket?.connected) {
+      socket.emit('leave-voice-channel', () => {});
     }
+    if (wasInCall) soundEffects.playLeaveCall();
   };
 
   // Alternar microfone próprio (Mute)
@@ -521,16 +620,10 @@ export default function App() {
       soundEffects.playUnmute();
     }
 
-    if (livekitEngineRef.current) {
-      livekitEngineRef.current.setMuted(newMuted);
-    }
-    if (voiceEngineRef.current) {
-      voiceEngineRef.current.setMuted(newMuted);
-    }
+    livekitEngineRef.current.setMuted(newMuted);
 
     if (newMuted) {
       setSpeakingUsers((prev) => ({ ...prev, [currentUser.id]: false }));
-      if (socket) socket.emit('speaking-state', { isSpeaking: false });
     }
 
     if (socket) {
@@ -558,20 +651,26 @@ export default function App() {
       isMuted: newMuted
     }));
 
-    if (livekitEngineRef.current) {
-      livekitEngineRef.current.setMuted(newMuted);
-      livekitEngineRef.current.setDeafened(newDeafened);
-    }
-    if (voiceEngineRef.current) {
-      voiceEngineRef.current.setMuted(newMuted);
-      voiceEngineRef.current.setDeafened(newDeafened);
-    }
+    livekitEngineRef.current.setMuted(newMuted);
+    livekitEngineRef.current.setDeafened(newDeafened);
 
     if (socket) {
       socket.emit('update-user-state', {
         isDeafened: newDeafened,
         isMuted: newMuted
       });
+    }
+  };
+
+  // Marca a transmissão própria como encerrada (UI + servidor)
+  const markScreenShareStopped = () => {
+    setLocalScreenStream(null);
+    if (!currentUserRef.current?.isScreenSharing) return;
+    setCurrentUser((prev) => (prev ? { ...prev, isScreenSharing: false } : prev));
+    const socket = socketService.getSocket();
+    if (socket?.connected) {
+      socket.emit('stop-screen-share', { channelId: currentVoiceChannelRef.current?.id });
+      socket.emit('update-user-state', { isScreenSharing: false });
     }
   };
 
@@ -583,16 +682,8 @@ export default function App() {
     }
 
     if (currentUser?.isScreenSharing) {
-      if (livekitEngineRef.current) {
-        livekitEngineRef.current.stopScreenShare();
-      }
-      if (screenEngineRef.current) {
-        screenEngineRef.current.stopShare();
-      }
-      setLocalScreenStream(null);
-      setCurrentUser((prev) => ({ ...prev, isScreenSharing: false }));
-      const socket = socketService.getSocket();
-      if (socket) socket.emit('update-user-state', { isScreenSharing: false });
+      livekitEngineRef.current.stopScreenShare();
+      markScreenShareStopped();
     } else {
       setIsScreenPickerOpen(true);
     }
@@ -601,30 +692,28 @@ export default function App() {
   const handleStartScreenShare = async (sourceId, withAudio = false, presetKey = '720p60') => {
     try {
       if (!currentVoiceChannel) return;
-
-      let stream = null;
-
-      // Inicia sempre a transmissão via Socket na porta 3002 para que todos os amigos vejam garantido
-      if (screenEngineRef.current) {
-        stream = await screenEngineRef.current.startShare(sourceId, withAudio, currentVoiceChannel.id, presetKey);
+      const livekitEngine = livekitEngineRef.current;
+      if (!livekitEngine.isConnected()) {
+        throw new Error('a conexão de voz/vídeo (LiveKit) não está ativa');
       }
 
-      // Tenta também transmitir via LiveKit se disponível
-      if (livekitEngineRef.current && livekitEngineRef.current.isConnected()) {
-        try {
-          await livekitEngineRef.current.startScreenShare(sourceId, withAudio, presetKey);
-        } catch (lkErr) {
-          console.warn('[LiveKit] Falha ao compartilhar via LiveKit:', lkErr);
-        }
-      }
+      const stream = await livekitEngine.startScreenShare(sourceId, withAudio, presetKey);
+      const preset = STREAM_PRESETS[livekitEngine.currentPresetKey];
 
-      if (stream) {
-        setLocalScreenStream(stream);
-        setCurrentUser((prev) => ({ ...prev, isScreenSharing: true }));
-        setActiveView('call');
+      setLocalScreenStream(stream);
+      setCurrentUser((prev) => ({ ...prev, isScreenSharing: true, screenPreset: livekitEngine.currentPresetKey }));
+      setActiveView('call');
 
-        const socket = socketService.getSocket();
-        if (socket) socket.emit('update-user-state', { isScreenSharing: true });
+      const socket = socketService.getSocket();
+      if (socket) {
+        socket.emit('start-screen-share', {
+          channelId: currentVoiceChannel.id,
+          preset: livekitEngine.currentPresetKey,
+          width: preset.width,
+          height: preset.height,
+          fps: preset.fps
+        });
+        socket.emit('update-user-state', { isScreenSharing: true });
       }
     } catch (err) {
       console.error('Falha ao iniciar compartilhamento de tela:', err);
@@ -635,23 +724,13 @@ export default function App() {
   // Controles de áudio individuais para outros participantes (0% até 200%)
   const handleVolumeChange = (userId, volume) => {
     setUserVolumes((prev) => ({ ...prev, [userId]: volume }));
-    if (livekitEngineRef.current) {
-      livekitEngineRef.current.setUserVolume(userId, volume);
-    }
-    if (voiceEngineRef.current) {
-      voiceEngineRef.current.setUserVolume(userId, volume);
-    }
+    livekitEngineRef.current.setUserVolume(userId, volume);
   };
 
   const handleToggleLocalMute = (userId) => {
     setLocallyMutedUsers((prev) => {
       const nextMuted = !prev[userId];
-      if (livekitEngineRef.current) {
-        livekitEngineRef.current.setUserLocalMuted(userId, nextMuted);
-      }
-      if (voiceEngineRef.current) {
-        voiceEngineRef.current.setUserLocalMuted(userId, nextMuted);
-      }
+      livekitEngineRef.current.setUserLocalMuted(userId, nextMuted);
       return { ...prev, [userId]: nextMuted };
     });
   };
@@ -659,17 +738,13 @@ export default function App() {
   // Controle de Som e Mute da Transmissão de Tela
   const handleStreamVolumeChange = (userId, volume) => {
     setStreamVolumes((prev) => ({ ...prev, [userId]: volume }));
-    if (screenEngineRef.current) {
-      screenEngineRef.current.setStreamVolume(volume);
-    }
+    livekitEngineRef.current.setStreamVolume(userId, volume);
   };
 
   const handleToggleStreamMute = (userId) => {
     setStreamMuted((prev) => {
       const nextMuted = !prev[userId];
-      if (screenEngineRef.current) {
-        screenEngineRef.current.setStreamMuted(nextMuted);
-      }
+      livekitEngineRef.current.setStreamMuted(userId, nextMuted);
       return { ...prev, [userId]: nextMuted };
     });
   };
@@ -683,9 +758,9 @@ export default function App() {
     localStorage.setItem('dc_noise_enabled', enabled ? 'true' : 'false');
     localStorage.setItem('dc_noise_threshold', threshold.toString());
 
-    if (voiceEngineRef.current) {
-      voiceEngineRef.current.setNoiseSettings(mode, enabled, threshold);
-    }
+    const normalizedMode = normalizeNoiseMode(mode);
+    noiseSettingsRef.current = { mode: normalizedMode, gateEnabled: enabled, thresholdPercent: threshold };
+    livekitEngineRef.current.setNoiseSettings(normalizedMode, enabled, threshold);
   };
 
   // Criar canal
@@ -820,7 +895,7 @@ export default function App() {
               speakingUsers={speakingUsers}
               localScreenStream={localScreenStream}
               livekitEngine={livekitEngineRef.current}
-              screenEngine={screenEngineRef.current}
+              mediaState={mediaState}
               onToggleMic={handleToggleMic}
               onToggleDeafen={handleToggleDeafen}
               onToggleScreenShare={handleToggleScreenShare}
