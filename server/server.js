@@ -1,17 +1,17 @@
-const path = require('path');
+const path = require("path");
 // Carrega server/.env pelo caminho do arquivo (o servidor é iniciado da raiz do projeto)
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const fs = require('fs');
-const { spawn } = require('child_process');
-const { AccessToken } = require('livekit-server-sdk');
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const cors = require("cors");
+const fs = require("fs");
+const { spawn } = require("child_process");
+const { AccessToken } = require("livekit-server-sdk");
 
-const LIVEKIT_API_KEY = 'devkey';
-const LIVEKIT_API_SECRET = 'secret';
+const LIVEKIT_API_KEY = "devkey";
+const LIVEKIT_API_SECRET = "secret";
 let livekitProcess = null;
 
 const app = express();
@@ -21,26 +21,26 @@ app.use(express.json());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: "*",
+    methods: ["GET", "POST"],
   },
-  maxHttpBufferSize: 1e8 // 100MB for data transfer if needed
+  maxHttpBufferSize: 1e8, // 100MB for data transfer if needed
 });
 
 const PORT = process.env.PORT || 3002;
 // IP público ou domínio do servidor (sem porta), definido em server/.env
-const SERVER_ADDRESS = `${process.env.SERVER_URL || 'localhost'}:${PORT}`;
+const SERVER_ADDRESS = `${process.env.SERVER_URL || "localhost:" + PORT}`;
 
 // Paleta de cores vibrantes estilo Discord para os avatares padrão
 const AVATAR_COLORS = [
-  '#5865F2', // Blurple
-  '#57F287', // Green
-  '#FEE75C', // Yellow
-  '#EB459E', // Fuchsia
-  '#ED4245', // Red
-  '#9B59B6', // Purple
-  '#1ABC9C', // Turquoise
-  '#E67E22'  // Orange
+  "#5865F2", // Blurple
+  "#57F287", // Green
+  "#FEE75C", // Yellow
+  "#EB459E", // Fuchsia
+  "#ED4245", // Red
+  "#9B59B6", // Purple
+  "#1ABC9C", // Turquoise
+  "#E67E22", // Orange
 ];
 
 function getRandomColor() {
@@ -49,10 +49,10 @@ function getRandomColor() {
 
 // Canais padrão
 let channels = [
-  { id: 'geral', name: 'Geral', type: 'voice' },
-  { id: 'jogos', name: 'Jogos', type: 'voice' },
-  { id: 'conversa', name: 'Bate-papo', type: 'voice' },
-  { id: 'chat-geral', name: 'chat-geral', type: 'text' }
+  { id: "geral", name: "Geral", type: "voice" },
+  { id: "jogos", name: "Jogos", type: "voice" },
+  { id: "conversa", name: "Bate-papo", type: "voice" },
+  { id: "chat-geral", name: "chat-geral", type: "text" },
 ];
 
 // Estado dos usuários conectados
@@ -63,29 +63,30 @@ const users = new Map();
 const messages = new Map();
 
 // Servir arquivos de download (concord.exe/.deb, app.asar e app.zip)
-app.use('/download', express.static(path.join(__dirname, 'public')));
+app.use("/download", express.static(path.join(__dirname, "public")));
 
 // Endpoint de verificação de atualização automática
-app.get('/download/version.json', (req, res) => {
+app.get("/download/version.json", (req, res) => {
   res.json({
-    version: '1.5.1',
-    releaseNotes: 'Concord v1.5.1: Otimização total de CPU/FPS na transmissão, eliminação de travamentos de áudio com AudioWorklet e ganho ampliado em até 250% (+14dB)!',
-    asarUrl: '/download/app.asar',
-    zipUrl: '/download/app.zip'
+    version: "1.5.1",
+    releaseNotes:
+      "Concord v1.5.1: Otimização total de CPU/FPS na transmissão, eliminação de travamentos de áudio com AudioWorklet e ganho ampliado em até 250% (+14dB)!",
+    asarUrl: "/download/app.asar",
+    zipUrl: "/download/app.zip",
   });
 });
 
-app.get('/health', (req, res) => {
+app.get("/health", (req, res) => {
   res.json({
-    status: 'online',
+    status: "online",
     usersCount: users.size,
     channels: channels.length,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
 // Página Web estilizada estilo Discord para amigos baixarem o instalador direto pelo navegador
-app.get('/', (req, res) => {
+app.get("/", (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -237,23 +238,23 @@ app.get('/', (req, res) => {
 </html>`);
 });
 
-io.on('connection', (socket) => {
+io.on("connection", (socket) => {
   console.log(`[+] Nova conexão: ${socket.id}`);
 
   // Registro inicial do usuário (com suporte a User ID persistente e Foto de Perfil)
-  socket.on('join-server', ({ nickname, userId, avatarUrl }, callback) => {
-    const cleanNick = (nickname || 'Anonimo').trim().substring(0, 32);
+  socket.on("join-server", ({ nickname, userId, avatarUrl }, callback) => {
+    const cleanNick = (nickname || "Anonimo").trim().substring(0, 32);
     const user = {
       id: socket.id,
       userId: userId || `user_${socket.id}`,
       nickname: cleanNick,
       currentVoiceChannel: null,
-      currentTextChannel: 'chat-geral',
+      currentTextChannel: "chat-geral",
       isMuted: false,
       isDeafened: false,
       isScreenSharing: false,
       avatarColor: getRandomColor(),
-      avatarUrl: avatarUrl || null
+      avatarUrl: avatarUrl || null,
     };
 
     users.set(socket.id, user);
@@ -265,73 +266,86 @@ io.on('connection', (socket) => {
       callback({
         self: user,
         channels,
-        users: usersList
+        users: usersList,
       });
     }
 
     // Notificar os outros usuários
-    socket.broadcast.emit('user-joined-server', user);
+    socket.broadcast.emit("user-joined-server", user);
 
     // Notificar imediatamente o cliente se houver atualização de versão
-    socket.emit('update-available', {
-      version: '1.5.1',
-      releaseNotes: 'Concord v1.5.1: Otimização total de CPU/FPS na transmissão, eliminação de travamentos de áudio com AudioWorklet e ganho ampliado em até 250% (+14dB)!'
+    socket.emit("update-available", {
+      version: "1.5.1",
+      releaseNotes:
+        "Concord v1.5.1: Otimização total de CPU/FPS na transmissão, eliminação de travamentos de áudio com AudioWorklet e ganho ampliado em até 250% (+14dB)!",
     });
   });
 
   // Atualizar Foto de Perfil
-  socket.on('update-user-avatar', ({ avatarUrl }) => {
+  socket.on("update-user-avatar", ({ avatarUrl }) => {
     const user = users.get(socket.id);
     if (!user) return;
     user.avatarUrl = avatarUrl;
-    io.emit('user-updated', user);
+    io.emit("user-updated", user);
   });
 
   // Criar novo canal
-  socket.on('create-channel', ({ name, type }, callback) => {
-    const cleanName = (name || 'novo-canal').trim().toLowerCase().replace(/\s+/g, '-');
+  socket.on("create-channel", ({ name, type }, callback) => {
+    const cleanName = (name || "novo-canal")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-");
     const channelId = `ch_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     const newChannel = {
       id: channelId,
       name: cleanName,
-      type: type === 'text' ? 'text' : 'voice'
+      type: type === "text" ? "text" : "voice",
     };
 
     channels.push(newChannel);
-    console.log(`[Canal Criado] ${newChannel.name} (${newChannel.type}) por ${socket.id}`);
+    console.log(
+      `[Canal Criado] ${newChannel.name} (${newChannel.type}) por ${socket.id}`,
+    );
 
-    io.emit('channel-created', newChannel);
+    io.emit("channel-created", newChannel);
     if (callback) callback({ success: true, channel: newChannel });
   });
 
   // Excluir canal (seja voz ou texto)
-  socket.on('delete-channel', ({ channelId }, callback) => {
-    if (channelId === 'geral' || channelId === 'chat-geral') {
-      if (callback) callback({ success: false, message: 'Os canais padrão não podem ser excluídos.' });
+  socket.on("delete-channel", ({ channelId }, callback) => {
+    if (channelId === "geral" || channelId === "chat-geral") {
+      if (callback)
+        callback({
+          success: false,
+          message: "Os canais padrão não podem ser excluídos.",
+        });
       return;
     }
 
     const channelIndex = channels.findIndex((c) => c.id === channelId);
     if (channelIndex === -1) {
-      if (callback) callback({ success: false, message: 'Canal não encontrado' });
+      if (callback)
+        callback({ success: false, message: "Canal não encontrado" });
       return;
     }
 
     const removedChannel = channels[channelIndex];
     channels.splice(channelIndex, 1);
-    console.log(`[Canal Excluído] ${removedChannel.name} (${removedChannel.id})`);
+    console.log(
+      `[Canal Excluído] ${removedChannel.name} (${removedChannel.id})`,
+    );
 
     // Se for canal de voz, desconecta qualquer usuário que esteja nele
-    if (removedChannel.type === 'voice') {
+    if (removedChannel.type === "voice") {
       for (const [userId, u] of users.entries()) {
         if (u.currentVoiceChannel === channelId) {
           u.currentVoiceChannel = null;
           u.isScreenSharing = false;
-          io.to(channelId).emit('user-left-voice-channel', {
+          io.to(channelId).emit("user-left-voice-channel", {
             userId: u.id,
-            channelId
+            channelId,
           });
-          io.emit('user-updated', u);
+          io.emit("user-updated", u);
         }
       }
     }
@@ -340,12 +354,12 @@ io.on('connection', (socket) => {
     messages.delete(channelId);
 
     // Notifica todos os clientes
-    io.emit('channel-deleted', { channelId });
+    io.emit("channel-deleted", { channelId });
     if (callback) callback({ success: true });
   });
 
   // Entrar em canal de voz
-  socket.on('join-voice-channel', ({ channelId }, callback) => {
+  socket.on("join-voice-channel", ({ channelId }, callback) => {
     const user = users.get(socket.id);
     if (!user) return;
 
@@ -360,9 +374,9 @@ io.on('connection', (socket) => {
       socket.leave(oldChannelId);
       user.currentVoiceChannel = null;
       user.isScreenSharing = false;
-      io.to(oldChannelId).emit('user-left-voice-channel', {
+      io.to(oldChannelId).emit("user-left-voice-channel", {
         userId: socket.id,
-        channelId: oldChannelId
+        channelId: oldChannelId,
       });
     }
 
@@ -372,80 +386,97 @@ io.on('connection', (socket) => {
 
     // Obter lista completa de usuários já presentes neste canal com seus estados atualizados
     const usersInRoom = Array.from(users.values()).filter(
-      (u) => u.currentVoiceChannel === channelId
+      (u) => u.currentVoiceChannel === channelId,
     );
 
-    console.log(`[Voz] ${user.nickname} entrou em ${channelId}. Usuários na sala: ${usersInRoom.length}`);
+    console.log(
+      `[Voz] ${user.nickname} entrou em ${channelId}. Usuários na sala: ${usersInRoom.length}`,
+    );
 
     // Notifica os usuários que já estavam na sala que um novo usuário entrou
-    socket.to(channelId).emit('user-joined-voice-channel', {
+    socket.to(channelId).emit("user-joined-voice-channel", {
       user,
-      channelId
+      channelId,
     });
 
     // Envia a lista para quem acabou de entrar começar o handshake WebRTC
     if (callback) {
       callback({
         success: true,
-        usersInRoom
+        usersInRoom,
       });
     }
 
     // Notifica todo o servidor para atualizar a sidebar
-    io.emit('user-updated', user);
+    io.emit("user-updated", user);
   });
 
   // Gerar token de acesso para o LiveKit SFU (WebRTC)
-  socket.on('get-livekit-token', async ({ channelId }, callback) => {
+  socket.on("get-livekit-token", async ({ channelId }, callback) => {
     try {
       const user = users.get(socket.id);
-      const nickname = user ? user.nickname : 'Anonimo';
+      const nickname = user ? user.nickname : "Anonimo";
       const identity = socket.id;
 
       const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
         identity,
         name: nickname,
-        ttl: '24h'
+        ttl: "24h",
       });
 
       at.addGrant({
         roomJoin: true,
-        room: channelId || 'geral',
+        room: channelId || "geral",
         canPublish: true,
         canSubscribe: true,
-        canPublishData: true
+        canPublishData: true,
       });
 
       const token = await at.toJwt();
 
-      let host = 'localhost';
+      let host = "localhost";
       const clientIp = socket.handshake.address || socket.conn?.remoteAddress;
-      const isLocalClient = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1' || clientIp?.includes('192.168.');
+      const isLocalClient =
+        clientIp === "127.0.0.1" ||
+        clientIp === "::1" ||
+        clientIp === "::ffff:127.0.0.1" ||
+        clientIp?.includes("192.168.");
 
       if (isLocalClient) {
-        host = (clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1') ? 'localhost' : '192.168.4.2';
-      } else if (socket.handshake && socket.handshake.headers && socket.handshake.headers.host) {
-        host = socket.handshake.headers.host.split(':')[0];
+        host =
+          clientIp === "127.0.0.1" ||
+          clientIp === "::1" ||
+          clientIp === "::ffff:127.0.0.1"
+            ? "localhost"
+            : "192.168.4.2";
+      } else if (
+        socket.handshake &&
+        socket.handshake.headers &&
+        socket.handshake.headers.host
+      ) {
+        host = socket.handshake.headers.host.split(":")[0];
       }
 
-      console.log(`[LiveKit] Token gerado para ${nickname} (${identity}) na sala ${channelId}`);
-      if (typeof callback === 'function') {
+      console.log(
+        `[LiveKit] Token gerado para ${nickname} (${identity}) na sala ${channelId}`,
+      );
+      if (typeof callback === "function") {
         callback({
           success: true,
           token,
-          livekitUrl: `ws://${host}:7880`
+          livekitUrl: `ws://${host}:7880`,
         });
       }
     } catch (err) {
-      console.error('[LiveKit] Erro ao gerar token:', err);
-      if (typeof callback === 'function') {
+      console.error("[LiveKit] Erro ao gerar token:", err);
+      if (typeof callback === "function") {
         callback({ success: false, error: err.message });
       }
     }
   });
 
   // Sair do canal de voz
-  socket.on('leave-voice-channel', (callback) => {
+  socket.on("leave-voice-channel", (callback) => {
     const user = users.get(socket.id);
     if (!user || !user.currentVoiceChannel) {
       if (callback) callback({ success: true });
@@ -459,44 +490,45 @@ io.on('connection', (socket) => {
 
     console.log(`[Voz] ${user.nickname} saiu da sala ${channelId}`);
 
-    io.to(channelId).emit('user-left-voice-channel', {
+    io.to(channelId).emit("user-left-voice-channel", {
       userId: socket.id,
-      channelId
+      channelId,
     });
 
-    io.emit('user-updated', user);
+    io.emit("user-updated", user);
     if (callback) callback({ success: true });
   });
 
   // Atualizar status (Mute microfone, Deafen fone, Screen share)
-  socket.on('update-user-state', ({ isMuted, isDeafened, isScreenSharing }) => {
+  socket.on("update-user-state", ({ isMuted, isDeafened, isScreenSharing }) => {
     const user = users.get(socket.id);
     if (!user) return;
 
-    if (typeof isMuted === 'boolean') user.isMuted = isMuted;
-    if (typeof isDeafened === 'boolean') user.isDeafened = isDeafened;
-    if (typeof isScreenSharing === 'boolean') user.isScreenSharing = isScreenSharing;
+    if (typeof isMuted === "boolean") user.isMuted = isMuted;
+    if (typeof isDeafened === "boolean") user.isDeafened = isDeafened;
+    if (typeof isScreenSharing === "boolean")
+      user.isScreenSharing = isScreenSharing;
 
     // Se estiver no canal de voz, notifica a sala e todos
     if (user.currentVoiceChannel) {
-      io.to(user.currentVoiceChannel).emit('user-state-changed', {
+      io.to(user.currentVoiceChannel).emit("user-state-changed", {
         userId: socket.id,
         isMuted: user.isMuted,
         isDeafened: user.isDeafened,
-        isScreenSharing: user.isScreenSharing
+        isScreenSharing: user.isScreenSharing,
       });
     }
-    io.emit('user-updated', user);
+    io.emit("user-updated", user);
   });
 
   // Indicador de fala (Speaking / Voice Activity)
-  socket.on('speaking-state', ({ isSpeaking }) => {
+  socket.on("speaking-state", ({ isSpeaking }) => {
     const user = users.get(socket.id);
     if (!user || !user.currentVoiceChannel) return;
 
-    socket.to(user.currentVoiceChannel).emit('user-speaking', {
+    socket.to(user.currentVoiceChannel).emit("user-speaking", {
       userId: socket.id,
-      isSpeaking
+      isSpeaking,
     });
   });
 
@@ -504,207 +536,237 @@ io.on('connection', (socket) => {
   // Garante 100% de funcionamento sem depender de portas UDP ou NAT/CGNAT
 
   // Relay de Áudio de Voz via WebSocket
-  socket.on('voice-frame', ({ channelId, data }) => {
+  socket.on("voice-frame", ({ channelId, data }) => {
     if (!channelId || !data) return;
-    socket.to(channelId).emit('voice-frame', {
+    socket.to(channelId).emit("voice-frame", {
       userId: socket.id,
-      data
+      data,
     });
   });
 
   // Relay de Transmissão de Tela via WebSocket (Volatile: descarta frames acumulados sem travar a rede)
-  socket.on('screen-frame', ({ channelId, frame, timestamp }) => {
+  socket.on("screen-frame", ({ channelId, frame, timestamp }) => {
     const user = users.get(socket.id);
     const targetChannel = channelId || user?.currentVoiceChannel;
     if (!targetChannel || !frame) return;
-    socket.to(targetChannel).volatile.emit('screen-frame', {
+    socket.to(targetChannel).volatile.emit("screen-frame", {
       userId: socket.id,
       frame,
-      timestamp: timestamp || Date.now()
+      timestamp: timestamp || Date.now(),
     });
   });
 
   // Notificação de início de compartilhamento com resolução e FPS
-  socket.on('start-screen-share', ({ channelId, preset, width, height, fps }) => {
-    const user = users.get(socket.id);
-    if (user) {
-      user.isScreenSharing = true;
-      io.emit('user-updated', user);
-    }
-    const targetChannel = channelId || user?.currentVoiceChannel;
-    if (!targetChannel) return;
-    socket.to(targetChannel).emit('screen-share-started', {
-      userId: socket.id,
-      preset,
-      width,
-      height,
-      fps
-    });
-  });
+  socket.on(
+    "start-screen-share",
+    ({ channelId, preset, width, height, fps }) => {
+      const user = users.get(socket.id);
+      if (user) {
+        user.isScreenSharing = true;
+        io.emit("user-updated", user);
+      }
+      const targetChannel = channelId || user?.currentVoiceChannel;
+      if (!targetChannel) return;
+      socket.to(targetChannel).emit("screen-share-started", {
+        userId: socket.id,
+        preset,
+        width,
+        height,
+        fps,
+      });
+    },
+  );
 
   // Relay de Áudio da Transmissão de Tela (som do sistema/jogos)
-  socket.on('screen-audio-frame', ({ channelId, data }) => {
+  socket.on("screen-audio-frame", ({ channelId, data }) => {
     const user = users.get(socket.id);
     const targetChannel = channelId || user?.currentVoiceChannel;
     if (!targetChannel || !data) return;
-    socket.to(targetChannel).emit('screen-audio-frame', {
+    socket.to(targetChannel).emit("screen-audio-frame", {
       userId: socket.id,
-      data
+      data,
     });
   });
 
   // Parar Transmissão de Tela
-  socket.on('stop-screen-share', ({ channelId }) => {
+  socket.on("stop-screen-share", ({ channelId }) => {
     const user = users.get(socket.id);
     if (user) {
       user.isScreenSharing = false;
-      io.emit('user-updated', user);
+      io.emit("user-updated", user);
     }
     const targetChannel = channelId || user?.currentVoiceChannel;
     if (targetChannel) {
-      socket.to(targetChannel).emit('screen-share-stopped', { userId: socket.id });
+      socket
+        .to(targetChannel)
+        .emit("screen-share-stopped", { userId: socket.id });
     }
   });
 
   // ==================== SINALIZAÇÃO WEBRTC ====================
 
   // Envio de Offer (Oferta SDP)
-  socket.on('webrtc-offer', ({ to, offer, streamType }) => {
+  socket.on("webrtc-offer", ({ to, offer, streamType }) => {
     // streamType pode ser 'audio' ou 'screen'
-    io.to(to).emit('webrtc-offer', {
+    io.to(to).emit("webrtc-offer", {
       from: socket.id,
       offer,
-      streamType
+      streamType,
     });
   });
 
   // Envio de Answer (Resposta SDP)
-  socket.on('webrtc-answer', ({ to, answer, streamType }) => {
-    io.to(to).emit('webrtc-answer', {
+  socket.on("webrtc-answer", ({ to, answer, streamType }) => {
+    io.to(to).emit("webrtc-answer", {
       from: socket.id,
       answer,
-      streamType
+      streamType,
     });
   });
 
   // Envio de ICE Candidate
-  socket.on('webrtc-ice-candidate', ({ to, candidate, streamType }) => {
-    io.to(to).emit('webrtc-ice-candidate', {
+  socket.on("webrtc-ice-candidate", ({ to, candidate, streamType }) => {
+    io.to(to).emit("webrtc-ice-candidate", {
       from: socket.id,
       candidate,
-      streamType
+      streamType,
     });
   });
 
   // ==================== CHAT DE TEXTO ====================
-  socket.on('send-message', ({ channelId, text, image, senderName, avatarUrl }) => {
-    if ((!text || !text.trim()) && !image) return;
+  socket.on(
+    "send-message",
+    ({ channelId, text, image, senderName, avatarUrl }) => {
+      if ((!text || !text.trim()) && !image) return;
 
-    let user = users.get(socket.id);
-    if (!user) {
-      user = {
-        id: socket.id,
-        nickname: (senderName || 'Amigo').trim().substring(0, 32),
-        avatarColor: getRandomColor(),
-        avatarUrl: avatarUrl || null
+      let user = users.get(socket.id);
+      if (!user) {
+        user = {
+          id: socket.id,
+          nickname: (senderName || "Amigo").trim().substring(0, 32),
+          avatarColor: getRandomColor(),
+          avatarUrl: avatarUrl || null,
+        };
+        users.set(socket.id, user);
+      } else if (avatarUrl && !user.avatarUrl) {
+        user.avatarUrl = avatarUrl;
+      }
+
+      const targetChannelId = channelId || "chat-geral";
+      const message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        channelId: targetChannelId,
+        sender: {
+          id: user.id,
+          nickname: user.nickname,
+          avatarColor: user.avatarColor,
+          avatarUrl: user.avatarUrl,
+        },
+        text: (text || "").trim().substring(0, 2000),
+        image: image || null,
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       };
-      users.set(socket.id, user);
-    } else if (avatarUrl && !user.avatarUrl) {
-      user.avatarUrl = avatarUrl;
-    }
 
-    const targetChannelId = channelId || 'chat-geral';
-    const message = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-      channelId: targetChannelId,
-      sender: {
-        id: user.id,
-        nickname: user.nickname,
-        avatarColor: user.avatarColor,
-        avatarUrl: user.avatarUrl
-      },
-      text: (text || '').trim().substring(0, 2000),
-      image: image || null,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
+      if (!messages.has(targetChannelId)) {
+        messages.set(targetChannelId, []);
+      }
+      const channelMsgs = messages.get(targetChannelId);
+      channelMsgs.push(message);
+      if (channelMsgs.length > 100) channelMsgs.shift();
 
-    if (!messages.has(targetChannelId)) {
-      messages.set(targetChannelId, []);
-    }
-    const channelMsgs = messages.get(targetChannelId);
-    channelMsgs.push(message);
-    if (channelMsgs.length > 100) channelMsgs.shift();
+      io.emit("new-message", message);
+    },
+  );
 
-    io.emit('new-message', message);
-  });
-
-  socket.on('get-messages', ({ channelId }, callback) => {
+  socket.on("get-messages", ({ channelId }, callback) => {
     const msgs = messages.get(channelId) || [];
     if (callback) callback(msgs);
   });
 
   // Desconexão
-  socket.on('disconnect', () => {
+  socket.on("disconnect", () => {
     const user = users.get(socket.id);
     if (user) {
       console.log(`[-] Usuário desconectou: ${user.nickname} (${socket.id})`);
       if (user.currentVoiceChannel) {
-        socket.to(user.currentVoiceChannel).emit('user-left-voice-channel', {
+        socket.to(user.currentVoiceChannel).emit("user-left-voice-channel", {
           userId: socket.id,
-          channelId: user.currentVoiceChannel
+          channelId: user.currentVoiceChannel,
         });
       }
       users.delete(socket.id);
-      io.emit('user-left-server', socket.id);
+      io.emit("user-left-server", socket.id);
     }
   });
 });
 
 function startLiveKitServer() {
-  const livekitPath = path.join(__dirname, 'bin', 'livekit-server.exe');
+  const livekitPath = path.join(__dirname, "bin", "livekit-server.exe");
   if (fs.existsSync(livekitPath)) {
-    console.log('[LiveKit] Iniciando LiveKit WebRTC SFU na porta 7880 (UDP 7882)...');
+    console.log(
+      "[LiveKit] Iniciando LiveKit WebRTC SFU na porta 7880 (UDP 7882)...",
+    );
     try {
-      livekitProcess = spawn(livekitPath, ['--bind', '0.0.0.0', '--dev', '--udp-port', '7882'], {
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
+      livekitProcess = spawn(
+        livekitPath,
+        ["--bind", "0.0.0.0", "--dev", "--udp-port", "7882"],
+        {
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
 
-      livekitProcess.stdout.on('data', (data) => {
+      livekitProcess.stdout.on("data", (data) => {
         const text = data.toString();
-        if (text.includes('starting LiveKit server') || text.includes('using single-node')) {
-          console.log('[LiveKit] SFU WebRTC ativo e pronto para chamadas!');
+        if (
+          text.includes("starting LiveKit server") ||
+          text.includes("using single-node")
+        ) {
+          console.log("[LiveKit] SFU WebRTC ativo e pronto para chamadas!");
         }
       });
 
-      livekitProcess.stderr.on('data', (data) => {
+      livekitProcess.stderr.on("data", (data) => {
         const text = data.toString();
-        if (text.includes('starting LiveKit server')) {
-          console.log('[LiveKit] SFU WebRTC ativo e pronto para chamadas!');
+        if (text.includes("starting LiveKit server")) {
+          console.log("[LiveKit] SFU WebRTC ativo e pronto para chamadas!");
         }
       });
 
-      livekitProcess.on('exit', (code) => {
+      livekitProcess.on("exit", (code) => {
         console.log(`[LiveKit] Processo encerrou com código ${code}`);
       });
     } catch (err) {
-      console.error('[LiveKit] Erro ao iniciar processo livekit-server:', err);
+      console.error("[LiveKit] Erro ao iniciar processo livekit-server:", err);
     }
 
     const cleanup = () => {
       if (livekitProcess) {
-        try { livekitProcess.kill(); } catch (e) {}
+        try {
+          livekitProcess.kill();
+        } catch (e) {}
         livekitProcess = null;
       }
     };
-    process.on('exit', cleanup);
-    process.on('SIGINT', () => { cleanup(); process.exit(); });
-    process.on('SIGTERM', () => { cleanup(); process.exit(); });
+    process.on("exit", cleanup);
+    process.on("SIGINT", () => {
+      cleanup();
+      process.exit();
+    });
+    process.on("SIGTERM", () => {
+      cleanup();
+      process.exit();
+    });
   } else {
-    console.warn('[LiveKit] Executável não encontrado em server/bin/livekit-server.exe');
+    console.warn(
+      "[LiveKit] Executável não encontrado em server/bin/livekit-server.exe",
+    );
   }
 }
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`===============================================`);
   console.log(`  DISCORD CLONE - SERVIDOR INICIADO`);
   console.log(`  Porta: ${PORT}`);
