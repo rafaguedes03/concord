@@ -4,7 +4,7 @@ import logoMark from '../assets/logo-mark.png';
 
 export default function ConnectModal({ isOpen, initialNick = '', initialServer = '', onConnect }) {
   const [nickname, setNickname] = useState(initialNick || '');
-  const [serverUrl, setServerUrl] = useState(initialServer || '45.184.120.69:3002');
+  const [serverUrl, setServerUrl] = useState(initialServer || __SERVER_ADDRESS__);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -81,11 +81,11 @@ export default function ConnectModal({ isOpen, initialNick = '', initialServer =
                 type="text"
                 value={serverUrl}
                 onChange={(e) => setServerUrl(e.target.value)}
-                placeholder="Ex: 45.184.120.69:3002 ou localhost:3002"
+                placeholder={`Ex: ${__SERVER_ADDRESS__} ou localhost:3002`}
                 className="w-full bg-surface-container-lowest border-0 border-b-2 border-outline-variant focus:border-primary focus:shadow-[0_6px_12px_-6px_rgba(255,45,120,0.5)] rounded-t-md px-3.5 py-2.5 text-on-surface text-sm focus:outline-none transition select-text placeholder:text-on-surface-variant/50"
               />
               <p className="text-[11px] text-on-surface-variant mt-1">
-                Servidor configurado para <span className="text-on-surface font-mono">45.184.120.69:3002</span> (ou <span className="text-on-surface font-mono">localhost:3002</span> se estiver neste PC).
+                Servidor configurado para <span className="text-on-surface font-mono">{__SERVER_ADDRESS__}</span> (ou <span className="text-on-surface font-mono">localhost:3002</span> se estiver neste PC).
               </p>
             </div>
 

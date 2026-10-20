@@ -16,3 +16,4 @@ server/public/*.zip
 # Sistema operacional
 .DS_Store
 Thumbs.db
+server/public/*.deb

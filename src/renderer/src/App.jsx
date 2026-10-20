@@ -71,7 +71,7 @@ export default function App() {
 
   // Configurações salvas no localStorage
   const savedNick = localStorage.getItem('dc_nickname') || '';
-  const rawSavedServer = localStorage.getItem('dc_server') || '45.184.120.69:3002';
+  const rawSavedServer = localStorage.getItem('dc_server') || __SERVER_ADDRESS__;
   const savedServer = rawSavedServer.replace(':3001', ':3002');
   const savedNoiseMode = normalizeNoiseMode(localStorage.getItem('dc_noise_mode'));
   const savedNoiseEnabled = localStorage.getItem('dc_noise_enabled') !== 'false';

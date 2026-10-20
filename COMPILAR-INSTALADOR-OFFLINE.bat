@@ -25,16 +25,21 @@ if %errorlevel% neq 0 goto erro
 
 echo.
 echo [3/3] Compilando installer\Program.cs com o app.zip embutido...
-"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /win32icon:build\icon.ico /optimize+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:Microsoft.CSharp.dll /resource:build-temp\app.zip,app.zip /out:Instalador-Concord.exe installer\Program.cs
+set "PORT=3002"
+set "SERVER_URL=localhost"
+if exist "server\.env" for /f "usebackq eol=# tokens=1,* delims==" %%a in ("server\.env") do set "%%a=%%b"
+if not exist build-temp mkdir build-temp
+> build-temp\ServerConfig.cs echo namespace ConcordInstaller { static class ServerConfig { public const string Url = "http://%SERVER_URL%:%PORT%"; } }
+"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /win32icon:build\icon.ico /optimize+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:Microsoft.CSharp.dll /resource:build-temp\app.zip,app.zip /out:concord.exe installer\Program.cs build-temp\ServerConfig.cs
 if %errorlevel% neq 0 goto erro
 
-copy /Y Instalador-Concord.exe server\public\Instalador-Concord.exe >nul
+copy /Y concord.exe server\public\concord.exe >nul
 if %errorlevel% neq 0 goto erro
 copy /Y build-temp\app.zip server\public\app.zip >nul
 if %errorlevel% neq 0 goto erro
 
 echo.
-echo [SUCESSO] Instalador-Concord.exe gerado (nao precisa de internet para instalar).
+echo [SUCESSO] concord.exe gerado (nao precisa de internet para instalar).
 echo [SUCESSO] Copiado para server\public\ junto com app.zip.
 echo.
 pause

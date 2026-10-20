@@ -441,7 +441,7 @@ export default function SettingsModal({
                 type="text"
                 value={serverUrl}
                 onChange={(e) => setServerUrl(e.target.value)}
-                placeholder="Ex: 45.184.120.69:3002 ou localhost:3002"
+                placeholder={`Ex: ${__SERVER_ADDRESS__} ou localhost:3002`}
                 className="w-full bg-surface-container-lowest border-0 border-b-2 border-outline-variant focus:border-primary focus:shadow-[0_6px_12px_-6px_rgba(255,45,120,0.5)] rounded-t-md px-3 py-1.5 text-on-surface text-sm focus:outline-none select-text font-mono"
               />
               <p className="text-[11px] text-on-surface-variant">

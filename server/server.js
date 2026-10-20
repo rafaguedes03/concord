@@ -28,6 +28,8 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3002;
+// IP público ou domínio do servidor (sem porta), definido em server/.env
+const SERVER_ADDRESS = `${process.env.SERVER_URL || 'localhost'}:${PORT}`;
 
 // Paleta de cores vibrantes estilo Discord para os avatares padrão
 const AVATAR_COLORS = [
@@ -60,7 +62,7 @@ const users = new Map();
 // Histórico de mensagens por canal de texto
 const messages = new Map();
 
-// Servir arquivos de download (Instalador-Discord.exe, app.asar e app.zip)
+// Servir arquivos de download (concord.exe/.deb, app.asar e app.zip)
 app.use('/download', express.static(path.join(__dirname, 'public')));
 
 // Endpoint de verificação de atualização automática
@@ -206,13 +208,18 @@ app.get('/', (req, res) => {
     <h1>Concord</h1>
     <div class="status-badge">
       <span class="status-dot"></span>
-      SERVIDOR ONLINE (45.184.120.69:${PORT})
+      SERVIDOR ONLINE (${SERVER_ADDRESS})
     </div>
     <p>Converse com seus amigos com IA DeepFilterNet3, transmissão 60FPS fluida, envio de imagens no chat e zero burocracia.</p>
     
-    <a href="/download/Instalador-Concord.exe" class="btn" download>
+    <a href="/download/concord.exe" class="btn" download>
       <span>⬇️ Baixar Instalador Windows (.exe)</span>
       <span style="font-size: 11px; opacity: 0.8; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">16 KB</span>
+    </a>
+
+    <a href="/download/concord.deb" class="btn" download>
+      <span>🐧 Baixar Instalador Linux (.deb)</span>
+      <span style="font-size: 11px; opacity: 0.8; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">Debian / Ubuntu</span>
     </a>
 
     <a href="/download/app.zip" class="btn btn-secondary" download>
@@ -702,6 +709,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`  DISCORD CLONE - SERVIDOR INICIADO`);
   console.log(`  Porta: ${PORT}`);
   console.log(`  Local: http://localhost:${PORT}`);
+  console.log(`  Público: http://${SERVER_ADDRESS}`);
   console.log(`  Rede Local: http://0.0.0.0:${PORT}`);
   console.log(`  Hospedagem em casa pronta para conexões!`);
   console.log(`===============================================`);

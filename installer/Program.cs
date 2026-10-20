@@ -31,8 +31,8 @@ namespace ConcordInstaller
         private Button btnAction;
         private WebClient webClient;
 
-        // IP do servidor Concord
-        private string serverUrl = "http://45.184.120.69:3002";
+        // Endereço do servidor Concord (gerado a partir do server\.env pelos COMPILAR-INSTALADOR*.bat)
+        private string serverUrl = ServerConfig.Url;
         private string tempZipPath;
         private string installDir;
 
