@@ -228,10 +228,13 @@ namespace ConcordInstaller
                 try
                 {
                     // Fecha processos antigos se estiverem abertos
+                    // Ignora o proprio instalador (concord.exe tem o mesmo nome de processo do app)
+                    int selfId = Process.GetCurrentProcess().Id;
                     foreach (var name in new[] { "Concord", "Discord Clone" })
                     {
                         foreach (var process in Process.GetProcessesByName(name))
                         {
+                            if (process.Id == selfId) continue;
                             try { process.Kill(); } catch { }
                         }
                     }
