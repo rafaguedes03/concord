@@ -665,16 +665,21 @@ function startLiveKitServer() {
     return;
   }
 
+  let announcedReady = false;
   const onOutput = (data) => {
-    const text = data.toString();
-    if (
-      text.includes("starting LiveKit server") ||
-      text.includes("using single-node")
-    ) {
-      console.log("[LiveKit] SFU WebRTC ativo e pronto para chamadas!");
-    }
-    if (/\b(ERROR|error|FATAL|fatal)\b/.test(text)) {
-      console.error(`[LiveKit] ${text.trim()}`);
+    for (const line of data.toString().split("\n")) {
+      if (
+        !announcedReady &&
+        (line.includes("starting LiveKit server") ||
+          line.includes("using single-node"))
+      ) {
+        announcedReady = true;
+        console.log("[LiveKit] SFU WebRTC ativo e pronto para chamadas!");
+      }
+      // Só o nível do log importa (WARN com campo "error" não é erro)
+      if (/\s(ERROR|FATAL|PANIC)\s/.test(line)) {
+        console.error(`[LiveKit] ${line.trim()}`);
+      }
     }
   };
   livekitProcess.stdout.on("data", onOutput);
@@ -723,7 +728,7 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`  DISCORD CLONE - SERVIDOR INICIADO`);
   console.log(`  Porta: ${PORT}`);
   console.log(`  Local: http://localhost:${PORT}`);
-  console.log(`  Público: http://${SERVER_ADDRESS}`);
+  console.log(`  Público: ${/^https?:\/\//.test(SERVER_ADDRESS) ? SERVER_ADDRESS : `http://${SERVER_ADDRESS}`}`);
   console.log(`  Rede Local: http://0.0.0.0:${PORT}`);
   console.log(`  Hospedagem em casa pronta para conexões!`);
   console.log(`===============================================`);
