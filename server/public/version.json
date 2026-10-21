@@ -1,6 +1,6 @@
 {
-  "version": "1.5.1",
-  "releaseNotes": "Concord v1.5.1: Otimizacao total de CPU/FPS na transmissao, eliminacao de travamentos de audio com AudioWorklet e ganho ampliado em ate 250% (+14dB)!",
+  "version": "1.5.2",
+  "releaseNotes": "fixes",
   "asarUrl": "/download/app.asar",
   "zipUrl": "/download/app.zip"
 }

@@ -15,7 +15,7 @@ import { LivekitEngine, STREAM_PRESETS } from './services/livekitEngine';
 import { normalizeNoiseMode } from './services/voiceProcessor';
 import { soundEffects } from './services/soundEffects';
 
-const CURRENT_APP_VERSION = '1.5.1';
+const CURRENT_APP_VERSION = '1.5.2';
 
 // Tempo que a call fica "segurando" a vaga enquanto o socket de sinalização tenta voltar
 const SOCKET_DROP_GRACE_MS = 15000;
