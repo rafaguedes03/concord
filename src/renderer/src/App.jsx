@@ -15,7 +15,18 @@ import { LivekitEngine, STREAM_PRESETS } from './services/livekitEngine';
 import { normalizeNoiseMode } from './services/voiceProcessor';
 import { soundEffects } from './services/soundEffects';
 
-const CURRENT_APP_VERSION = '1.5.2';
+const CURRENT_APP_VERSION = '1.5.3';
+
+// true só se a versão do servidor for mais nova que a instalada (evita oferecer downgrade)
+const isNewerVersion = (version) => {
+  const a = String(version).split('.').map(Number);
+  const b = CURRENT_APP_VERSION.split('.').map(Number);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const diff = (a[i] || 0) - (b[i] || 0);
+    if (diff !== 0) return diff > 0;
+  }
+  return false;
+};
 
 // Tempo que a call fica "segurando" a vaga enquanto o socket de sinalização tenta voltar
 const SOCKET_DROP_GRACE_MS = 15000;
@@ -239,7 +250,7 @@ export default function App() {
       const res = await fetch(`${cleanUrl}/download/version.json?t=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
-      if (data.version && data.version !== CURRENT_APP_VERSION) {
+      if (data.version && isNewerVersion(data.version)) {
         console.log(`[AutoUpdate] Nova versão detectada: v${data.version} (Instalada: v${CURRENT_APP_VERSION})`);
         setUpdateStatus({
           available: true,
@@ -451,7 +462,7 @@ export default function App() {
 
     // Notificação imediata de nova versão via WebSocket
     socket.on('update-available', ({ version, releaseNotes }) => {
-      if (version && version !== CURRENT_APP_VERSION) {
+      if (version && isNewerVersion(version)) {
         console.log(`[AutoUpdate WS] Nova versão detectada via Socket: v${version}`);
         setUpdateStatus({
           available: true,

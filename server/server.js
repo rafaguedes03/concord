@@ -76,9 +76,18 @@ app.use("/download", express.static(path.join(__dirname, "public")));
 
 // Endpoint de verificação de atualização automática
 // (a versão fica só em public/version.json, atualizado pelo GERAR-ATUALIZACAO.bat)
+const versionJsonPath = path.join(__dirname, "public", "version.json");
+function readVersionInfo() {
+  try {
+    return JSON.parse(fs.readFileSync(versionJsonPath, "utf8"));
+  } catch (e) {
+    return null;
+  }
+}
+
 app.get("/download/version.json", (req, res) => {
   res.set("Cache-Control", "no-store");
-  res.sendFile(path.join(__dirname, "public", "version.json"));
+  res.sendFile(versionJsonPath);
 });
 
 app.get("/health", (req, res) => {
@@ -279,11 +288,13 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("user-joined-server", user);
 
     // Notificar imediatamente o cliente se houver atualização de versão
-    socket.emit("update-available", {
-      version: "1.5.1",
-      releaseNotes:
-        "Concord v1.5.1: Otimização total de CPU/FPS na transmissão, eliminação de travamentos de áudio com AudioWorklet e ganho ampliado em até 250% (+14dB)!",
-    });
+    const versionInfo = readVersionInfo();
+    if (versionInfo?.version) {
+      socket.emit("update-available", {
+        version: versionInfo.version,
+        releaseNotes: versionInfo.releaseNotes,
+      });
+    }
   });
 
   // Atualizar Foto de Perfil

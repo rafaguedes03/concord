@@ -1,6 +1,6 @@
 {
-  "version": "1.5.2",
-  "releaseNotes": "fixes",
+  "version": "1.5.3",
+  "releaseNotes": "Resolve ouvir o próprio áudio na transmissão",
   "asarUrl": "/download/app.asar",
   "zipUrl": "/download/app.zip"
 }
