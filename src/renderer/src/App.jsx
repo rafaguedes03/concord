@@ -15,7 +15,7 @@ import { LivekitEngine, STREAM_PRESETS } from './services/livekitEngine';
 import { normalizeNoiseMode } from './services/voiceProcessor';
 import { soundEffects } from './services/soundEffects';
 
-const CURRENT_APP_VERSION = '1.5.3';
+const CURRENT_APP_VERSION = '1.5.4';
 
 // true só se a versão do servidor for mais nova que a instalada (evita oferecer downgrade)
 const isNewerVersion = (version) => {

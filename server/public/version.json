@@ -1,6 +1,6 @@
 {
-  "version": "1.5.3",
-  "releaseNotes": "Resolve ouvir o próprio áudio na transmissão",
+  "version": "1.5.4",
+  "releaseNotes": "Não transmite o áudio do proprio concord.",
   "asarUrl": "/download/app.asar",
   "zipUrl": "/download/app.zip"
 }
