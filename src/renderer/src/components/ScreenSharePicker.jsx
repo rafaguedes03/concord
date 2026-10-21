@@ -218,7 +218,9 @@ export default function ScreenSharePicker({ isOpen, onClose, onSelectSource }) {
             <span>Compartilhar áudio do sistema/jogos</span>
           </label>
           <span className="text-[11px] text-on-surface-variant">
-            {activeTab === 'screens' ? 'Disponível em Telas Inteiras' : 'Apenas vídeo em janelas'}
+            {window.electronAPI?.platform === 'win32'
+              ? 'Sem o som do próprio Concord'
+              : activeTab === 'screens' ? 'Disponível em Telas Inteiras' : 'Apenas vídeo em janelas'}
           </span>
         </div>
 

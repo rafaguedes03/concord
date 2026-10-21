@@ -324,6 +324,29 @@ export class LivekitEngine {
         try { await window.electronAPI.setSelectedSource(sourceId); } catch (e) {}
       }
 
+      // Windows: getDisplayMedia + restrictOwnAudio capta o áudio do sistema sem o próprio Concord
+      // (o handler do processo principal entrega a fonte escolhida acima)
+      if (withAudio && window.electronAPI.platform === 'win32') {
+        try {
+          return await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              width: { max: preset.width },
+              height: { max: preset.height },
+              frameRate: { ideal: preset.fps, max: preset.fps }
+            },
+            audio: {
+              restrictOwnAudio: true,
+              suppressLocalAudioPlayback: false,
+              autoGainControl: false,
+              echoCancellation: false,
+              noiseSuppression: false
+            }
+          });
+        } catch (gdmErr) {
+          console.warn('[LiveKit] getDisplayMedia com áudio falhou, usando captura antiga:', gdmErr);
+        }
+      }
+
       // Áudio do sistema só existe na captura de tela inteira
       const audioConfig = withAudio && sourceId.startsWith('screen:')
         ? { mandatory: { chromeMediaSource: 'desktop' } }
