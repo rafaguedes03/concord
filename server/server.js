@@ -75,14 +75,10 @@ const messages = new Map();
 app.use("/download", express.static(path.join(__dirname, "public")));
 
 // Endpoint de verificação de atualização automática
+// (a versão fica só em public/version.json, atualizado pelo GERAR-ATUALIZACAO.bat)
 app.get("/download/version.json", (req, res) => {
-  res.json({
-    version: "1.5.1",
-    releaseNotes:
-      "Concord v1.5.1: Otimização total de CPU/FPS na transmissão, eliminação de travamentos de áudio com AudioWorklet e ganho ampliado em até 250% (+14dB)!",
-    asarUrl: "/download/app.asar",
-    zipUrl: "/download/app.zip",
-  });
+  res.set("Cache-Control", "no-store");
+  res.sendFile(path.join(__dirname, "public", "version.json"));
 });
 
 app.get("/health", (req, res) => {
