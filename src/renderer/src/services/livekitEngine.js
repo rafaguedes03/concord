@@ -4,7 +4,10 @@ import {
   Room,
   RoomEvent,
   Track,
-  AudioPresets
+  TrackEvent,
+  AudioPresets,
+  VideoPresets,
+  createLocalVideoTrack
 } from 'livekit-client';
 import { ConcordVoiceProcessor } from './voiceProcessor';
 
@@ -14,6 +17,11 @@ export const STREAM_PRESETS = {
   '720p60': { name: '720p 60 FPS', width: 1280, height: 720, fps: 60, maxBitrate: 5_000_000 },
   '1080p60': { name: '1080p 60 FPS', width: 1920, height: 1080, fps: 60, maxBitrate: 8_000_000 }
 };
+
+// Câmera em 720p 30 FPS com simulcast: o LiveKit entrega 180p/360p/720p conforme o tamanho do tile de quem assiste
+const CAMERA_RESOLUTION = VideoPresets.h720.resolution;
+const CAMERA_ENCODING = { maxBitrate: 1_700_000, maxFramerate: 30 };
+const CAMERA_SIMULCAST_LAYERS = [VideoPresets.h180, VideoPresets.h360];
 
 // Curva de ganho exponencial estilo Discord: 100% = 1.0x, 200% = 5.0x (+14 dB)
 export function calcGain(volume) {
@@ -43,6 +51,8 @@ export class LivekitEngine {
 
     // Tracks de vídeo de compartilhamento de tela: userId -> RemoteVideoTrack
     this.remoteVideoTracks = new Map();
+    // Tracks de câmera: userId -> RemoteVideoTrack
+    this.remoteCameraTracks = new Map();
 
     // Microfone e processador de voz
     this.voiceProcessor = null;
@@ -54,12 +64,21 @@ export class LivekitEngine {
     this.localScreenStream = null;
     this.currentPresetKey = null;
 
+    // Câmera local
+    this.localCameraTrack = null;
+    this.cameraDeviceId = null;
+
+    // Microfone e alto-falante escolhidos (null = padrão do sistema)
+    this.micDeviceId = null;
+    this.speakerDeviceId = null;
+
     // Callbacks para o React
     this.onActiveSpeakersChanged = null; // (speakerIds: string[]) => void
     this.onRemoteTrackSubscribed = null; // (userId: string, track: Track, kind: 'video' | 'audio') => void
     this.onRemoteTrackUnsubscribed = null; // (userId: string, kind: 'video' | 'audio') => void
     this.onConnectionStateChange = null; // ('connected' | 'reconnecting' | 'disconnected', reason?) => void
     this.onLocalScreenShareEnded = null; // () => void
+    this.onLocalCameraEnded = null; // () => void
   }
 
   // Verifica se o LiveKit está de fato conectado e pronto
@@ -82,11 +101,13 @@ export class LivekitEngine {
       // Mixa o áudio remoto via Web Audio: permite volume individual acima de 100%
       webAudioMix: true,
       audioCaptureDefaults: {
+        deviceId: this.micDeviceId || undefined,
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
         channelCount: 1
       },
+      audioOutput: this.speakerDeviceId ? { deviceId: this.speakerDeviceId } : undefined,
       publishDefaults: {
         audioPreset: AudioPresets.music,
         dtx: true,
@@ -115,7 +136,7 @@ export class LivekitEngine {
   }
 
   setupRoomEvents(room) {
-    // Inscrição em tracks de outros participantes (Voz ou Tela)
+    // Inscrição em tracks de outros participantes (Voz, Tela ou Câmera)
     room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
       const userId = participant.identity;
       console.log(`[LiveKit] Track inscrita de ${participant.name || userId} (${track.kind}, source: ${track.source})`);
@@ -136,9 +157,10 @@ export class LivekitEngine {
           this.onRemoteTrackSubscribed(userId, track, 'audio');
         }
       } else if (track.kind === Track.Kind.Video) {
-        this.remoteVideoTracks.set(userId, track);
+        const isCamera = track.source === Track.Source.Camera;
+        (isCamera ? this.remoteCameraTracks : this.remoteVideoTracks).set(userId, track);
         if (this.onRemoteTrackSubscribed) {
-          this.onRemoteTrackSubscribed(userId, track, 'video');
+          this.onRemoteTrackSubscribed(userId, track, isCamera ? 'camera' : 'video');
         }
       }
     });
@@ -160,9 +182,11 @@ export class LivekitEngine {
         }
       } else if (track.kind === Track.Kind.Video) {
         track.detach();
-        this.remoteVideoTracks.delete(userId);
+        const isCamera = track.source === Track.Source.Camera;
+        const tracks = isCamera ? this.remoteCameraTracks : this.remoteVideoTracks;
+        if (tracks.get(userId) === track) tracks.delete(userId);
         if (this.onRemoteTrackUnsubscribed) {
-          this.onRemoteTrackUnsubscribed(userId, 'video');
+          this.onRemoteTrackUnsubscribed(userId, isCamera ? 'camera' : 'video');
         }
       }
     });
@@ -207,6 +231,7 @@ export class LivekitEngine {
 
     try {
       const publication = await this.room.localParticipant.setMicrophoneEnabled(true, {
+        deviceId: this.micDeviceId || undefined,
         echoCancellation: true,
         noiseSuppression: isAuto,
         autoGainControl: isAuto,
@@ -459,6 +484,90 @@ export class LivekitEngine {
     this.currentPresetKey = null;
   }
 
+  // Lista câmeras, microfones ou alto-falantes ('videoinput' | 'audioinput' | 'audiooutput')
+  // As entradas "default"/"communications" do Windows ficam de fora: o menu já tem "Padrão do sistema"
+  static async listDevices(kind) {
+    try {
+      const devices = await Room.getLocalDevices(kind);
+      return devices.filter((d) => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications');
+    } catch (err) {
+      console.warn(`[LiveKit] Não foi possível listar dispositivos (${kind}):`, err);
+      return [];
+    }
+  }
+
+  // Troca o microfone ao vivo (o SDK reinicia o processador de voz na track nova)
+  async switchMicrophone(deviceId) {
+    this.micDeviceId = deviceId || null;
+    if (!this.room) return;
+    await this.room.switchActiveDevice('audioinput', this.micDeviceId || 'default');
+  }
+
+  // Troca o alto-falante de todo o áudio recebido na call
+  async switchSpeaker(deviceId) {
+    this.speakerDeviceId = deviceId || null;
+    if (!this.room) return;
+    await this.room.switchActiveDevice('audiooutput', this.speakerDeviceId || 'default');
+  }
+
+  // Liga a câmera em 720p 30 FPS com simulcast H.264
+  async startCamera(deviceId) {
+    if (!this.room) throw new Error('Não está em uma sala LiveKit');
+    if (this.localCameraTrack) await this.stopCamera();
+    if (deviceId !== undefined) this.cameraDeviceId = deviceId || null;
+
+    const track = await createLocalVideoTrack({
+      deviceId: this.cameraDeviceId || undefined,
+      resolution: CAMERA_RESOLUTION
+    });
+
+    try {
+      // Câmera desconectada ou bloqueada pelo sistema encerra a track sozinha
+      track.on(TrackEvent.Ended, () => {
+        if (this.localCameraTrack !== track) return;
+        this.stopCamera();
+        if (this.onLocalCameraEnded) this.onLocalCameraEnded();
+      });
+
+      await this.room.localParticipant.publishTrack(track, {
+        name: 'camera',
+        source: Track.Source.Camera,
+        videoCodec: 'h264',
+        simulcast: true,
+        videoEncoding: CAMERA_ENCODING,
+        videoSimulcastLayers: CAMERA_SIMULCAST_LAYERS
+      });
+      this.localCameraTrack = track;
+    } catch (err) {
+      track.stop();
+      throw err;
+    }
+
+    console.log('[LiveKit] Câmera publicada (720p 30 FPS, simulcast)');
+    return track;
+  }
+
+  // Desliga a câmera e libera o dispositivo (apaga a luz da webcam)
+  async stopCamera() {
+    const track = this.localCameraTrack;
+    this.localCameraTrack = null;
+    if (!track) return;
+    try {
+      if (this.room) await this.room.localParticipant.unpublishTrack(track, true);
+    } catch (e) {}
+    try { track.stop(); } catch (e) {}
+  }
+
+  // Troca a câmera usada (ao vivo se estiver ligada)
+  async switchCamera(deviceId) {
+    this.cameraDeviceId = deviceId || null;
+    if (!this.localCameraTrack) return;
+    await this.localCameraTrack.restartTrack({
+      deviceId: this.cameraDeviceId || undefined,
+      resolution: CAMERA_RESOLUTION
+    });
+  }
+
   cleanup() {
     for (const sources of this.remoteAudioTracks.values()) {
       for (const track of sources.values()) {
@@ -467,7 +576,13 @@ export class LivekitEngine {
     }
     this.remoteAudioTracks.clear();
     this.remoteVideoTracks.clear();
+    this.remoteCameraTracks.clear();
     this.voiceProcessor = null;
+
+    if (this.localCameraTrack) {
+      try { this.localCameraTrack.stop(); } catch (e) {}
+      this.localCameraTrack = null;
+    }
 
     this.localScreenVideoTrack = null;
     this.localScreenAudioTrack = null;
@@ -485,6 +600,7 @@ export class LivekitEngine {
   async disconnect() {
     this.isLeaving = true;
     await this.stopScreenShare();
+    await this.stopCamera();
     const room = this.room;
     this.room = null;
     if (room) {

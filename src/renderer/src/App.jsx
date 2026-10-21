@@ -15,7 +15,7 @@ import { LivekitEngine, STREAM_PRESETS } from './services/livekitEngine';
 import { normalizeNoiseMode } from './services/voiceProcessor';
 import { soundEffects } from './services/soundEffects';
 
-const CURRENT_APP_VERSION = '1.5.4';
+const CURRENT_APP_VERSION = '1.5.5';
 
 // true só se a versão do servidor for mais nova que a instalada (evita oferecer downgrade)
 const isNewerVersion = (version) => {
@@ -151,6 +151,12 @@ export default function App() {
   const [streamVolumes, setStreamVolumes] = useState({});
   const [streamMuted, setStreamMuted] = useState({});
   const [localScreenStream, setLocalScreenStream] = useState(null);
+  // Câmera própria (track local para o preview) e dispositivo escolhido
+  const [localCameraTrack, setLocalCameraTrack] = useState(null);
+  const [cameraDeviceId, setCameraDeviceId] = useState(localStorage.getItem('dc_camera_device') || '');
+  // Microfone e alto-falante escolhidos ('' = padrão do sistema)
+  const [micDeviceId, setMicDeviceId] = useState(localStorage.getItem('dc_mic_device') || '');
+  const [speakerDeviceId, setSpeakerDeviceId] = useState(localStorage.getItem('dc_speaker_device') || '');
   // Estado da conexão de mídia (LiveKit): null | 'connecting' | 'connected' | 'reconnecting'
   const [mediaState, setMediaState] = useState(null);
 
@@ -185,6 +191,7 @@ export default function App() {
   });
   const socketDropTimerRef = useRef(null);
   const isJoiningVoiceRef = useRef(false);
+  const cameraBusyRef = useRef(false);
 
   useEffect(() => {
     currentUserRef.current = currentUser;
@@ -193,6 +200,10 @@ export default function App() {
   // Inicialização, conexão e monitoramento automático de novas versões
   useEffect(() => {
     const livekitEngine = livekitEngineRef.current;
+    livekitEngine.cameraDeviceId = localStorage.getItem('dc_camera_device') || null;
+    livekitEngine.micDeviceId = localStorage.getItem('dc_mic_device') || null;
+    livekitEngine.speakerDeviceId = localStorage.getItem('dc_speaker_device') || null;
+    soundEffects.setOutputDevice(livekitEngine.speakerDeviceId);
 
     // Detecção de fala em tempo real do LiveKit (inclui o próprio usuário)
     livekitEngine.onActiveSpeakersChanged = (speakerIds) => {
@@ -213,6 +224,7 @@ export default function App() {
         const channel = currentVoiceChannelRef.current;
         if (!channel) return;
         markScreenShareStopped();
+        markCameraStopped();
         setMediaState('reconnecting');
         retryMediaConnection(channel, 1);
       }
@@ -221,6 +233,11 @@ export default function App() {
     // Usuário encerrou a captura pelo sistema operacional (ex.: "Parar compartilhamento")
     livekitEngine.onLocalScreenShareEnded = () => {
       markScreenShareStopped();
+    };
+
+    // Câmera desconectada ou bloqueada pelo sistema durante a call
+    livekitEngine.onLocalCameraEnded = () => {
+      markCameraStopped();
     };
 
     if (savedNick && savedServer) {
@@ -434,10 +451,10 @@ export default function App() {
       setUsers((prev) => [...prev.filter((u) => u.id !== user.id), user]);
     });
 
-    socket.on('user-state-changed', ({ userId, isMuted, isDeafened, isScreenSharing }) => {
+    socket.on('user-state-changed', ({ userId, isMuted, isDeafened, isScreenSharing, isCameraOn }) => {
       setUsers((prev) =>
         prev.map((u) =>
-          u.id === userId ? { ...u, isMuted, isDeafened, isScreenSharing } : u
+          u.id === userId ? { ...u, isMuted, isDeafened, isScreenSharing, isCameraOn: !!isCameraOn } : u
         )
       );
     });
@@ -544,6 +561,7 @@ export default function App() {
     try {
       await livekitEngine.disconnect();
       markScreenShareStopped();
+      markCameraStopped();
       setMediaState(isRejoin ? 'reconnecting' : 'connecting');
 
       const joinRes = await emitWithAck(socket, 'join-voice-channel', { channelId: channel.id });
@@ -551,7 +569,7 @@ export default function App() {
 
       currentVoiceChannelRef.current = channel;
       setCurrentVoiceChannel(channel);
-      setCurrentUser((prev) => ({ ...prev, currentVoiceChannel: channel.id, isScreenSharing: false }));
+      setCurrentUser((prev) => ({ ...prev, currentVoiceChannel: channel.id, isScreenSharing: false, isCameraOn: false }));
       if (Array.isArray(joinRes.usersInRoom)) {
         setUsers((prev) => {
           const map = new Map(prev.map((u) => [u.id, u]));
@@ -599,8 +617,9 @@ export default function App() {
     clearTimeout(socketDropTimerRef.current);
     livekitEngineRef.current.disconnect();
     setCurrentVoiceChannel(null);
-    setCurrentUser((prev) => (prev ? { ...prev, currentVoiceChannel: null, isScreenSharing: false } : prev));
+    setCurrentUser((prev) => (prev ? { ...prev, currentVoiceChannel: null, isScreenSharing: false, isCameraOn: false } : prev));
     setLocalScreenStream(null);
+    setLocalCameraTrack(null);
     setSpeakingUsers({});
     setMediaState(null);
     setActiveView('chat');
@@ -729,6 +748,91 @@ export default function App() {
     } catch (err) {
       console.error('Falha ao iniciar compartilhamento de tela:', err);
       alert('Erro ao compartilhar tela: ' + err.message);
+    }
+  };
+
+  // Marca a câmera própria como desligada (UI + servidor)
+  const markCameraStopped = () => {
+    setLocalCameraTrack(null);
+    if (!currentUserRef.current?.isCameraOn) return;
+    setCurrentUser((prev) => (prev ? { ...prev, isCameraOn: false } : prev));
+    const socket = socketService.getSocket();
+    if (socket?.connected) {
+      socket.emit('update-user-state', { isCameraOn: false });
+    }
+  };
+
+  // Liga/desliga a câmera na call (720p 30 FPS com simulcast via LiveKit)
+  const handleToggleCamera = async () => {
+    if (!currentVoiceChannel || cameraBusyRef.current) return;
+    const livekitEngine = livekitEngineRef.current;
+
+    if (currentUser?.isCameraOn) {
+      await livekitEngine.stopCamera();
+      markCameraStopped();
+      return;
+    }
+
+    cameraBusyRef.current = true;
+    try {
+      if (!livekitEngine.isConnected()) {
+        throw new Error('a conexão de voz/vídeo (LiveKit) não está ativa');
+      }
+      const track = await livekitEngine.startCamera();
+      setLocalCameraTrack(track);
+      setCurrentUser((prev) => ({ ...prev, isCameraOn: true }));
+      const socket = socketService.getSocket();
+      if (socket) socket.emit('update-user-state', { isCameraOn: true });
+    } catch (err) {
+      console.error('Falha ao ligar a câmera:', err);
+      const denied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError';
+      const missing = err?.name === 'NotFoundError' || err?.name === 'OverconstrainedError';
+      alert(
+        denied
+          ? 'O acesso à câmera foi bloqueado. No Windows, verifique Configurações > Privacidade e segurança > Câmera e permita o acesso para aplicativos da área de trabalho.'
+          : missing
+          ? 'Nenhuma câmera encontrada. Conecte uma câmera ou escolha outra no menu ao lado do botão.'
+          : 'Erro ao ligar a câmera: ' + err.message
+      );
+    } finally {
+      cameraBusyRef.current = false;
+    }
+  };
+
+  // Escolhe a câmera usada (troca ao vivo se ela estiver ligada)
+  const handleSelectCamera = async (deviceId) => {
+    setCameraDeviceId(deviceId);
+    localStorage.setItem('dc_camera_device', deviceId);
+    try {
+      await livekitEngineRef.current.switchCamera(deviceId);
+    } catch (err) {
+      console.error('Falha ao trocar de câmera:', err);
+      alert('Não foi possível usar essa câmera: ' + err.message);
+    }
+  };
+
+  // Escolhe o microfone (troca ao vivo na call, mantendo o processador de voz)
+  const handleSelectMic = async (deviceId) => {
+    setMicDeviceId(deviceId);
+    localStorage.setItem('dc_mic_device', deviceId);
+    try {
+      await livekitEngineRef.current.switchMicrophone(deviceId);
+    } catch (err) {
+      console.error('Falha ao trocar de microfone:', err);
+      alert('Não foi possível usar esse microfone: ' + err.message);
+    }
+  };
+
+  // Escolhe o alto-falante/fone de todo o áudio da call e dos efeitos sonoros
+  const handleSelectSpeaker = async (deviceId) => {
+    setSpeakerDeviceId(deviceId);
+    localStorage.setItem('dc_speaker_device', deviceId);
+    soundEffects.setOutputDevice(deviceId);
+    try {
+      await livekitEngineRef.current.switchSpeaker(deviceId);
+    } catch (err) {
+      console.error('Falha ao trocar de alto-falante:', err);
+      alert('Não foi possível usar esse alto-falante: ' + err.message);
     }
   };
 
@@ -910,6 +1014,14 @@ export default function App() {
               onToggleMic={handleToggleMic}
               onToggleDeafen={handleToggleDeafen}
               onToggleScreenShare={handleToggleScreenShare}
+              localCameraTrack={localCameraTrack}
+              cameraDeviceId={cameraDeviceId}
+              onToggleCamera={handleToggleCamera}
+              onSelectCamera={handleSelectCamera}
+              micDeviceId={micDeviceId}
+              speakerDeviceId={speakerDeviceId}
+              onSelectMic={handleSelectMic}
+              onSelectSpeaker={handleSelectSpeaker}
               onLeaveCall={handleLeaveVoice}
               userVolumes={userVolumes}
               locallyMutedUsers={locallyMutedUsers}

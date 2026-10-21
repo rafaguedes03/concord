@@ -1,6 +1,6 @@
 {
-  "version": "1.5.4",
-  "releaseNotes": "Não transmite o áudio do proprio concord.",
+  "version": "1.5.5",
+  "releaseNotes": "chamada de vídeo",
   "asarUrl": "/download/app.asar",
   "zipUrl": "/download/app.zip"
 }

@@ -267,6 +267,7 @@ io.on("connection", (socket) => {
       isMuted: false,
       isDeafened: false,
       isScreenSharing: false,
+      isCameraOn: false,
       avatarColor: getRandomColor(),
       avatarUrl: avatarUrl || null,
     };
@@ -357,6 +358,7 @@ io.on("connection", (socket) => {
         if (u.currentVoiceChannel === channelId) {
           u.currentVoiceChannel = null;
           u.isScreenSharing = false;
+          u.isCameraOn = false;
           io.to(channelId).emit("user-left-voice-channel", {
             userId: u.id,
             channelId,
@@ -390,6 +392,7 @@ io.on("connection", (socket) => {
       socket.leave(oldChannelId);
       user.currentVoiceChannel = null;
       user.isScreenSharing = false;
+      user.isCameraOn = false;
       io.to(oldChannelId).emit("user-left-voice-channel", {
         userId: socket.id,
         channelId: oldChannelId,
@@ -482,6 +485,7 @@ io.on("connection", (socket) => {
     socket.leave(channelId);
     user.currentVoiceChannel = null;
     user.isScreenSharing = false;
+    user.isCameraOn = false;
 
     console.log(`[Voz] ${user.nickname} saiu da sala ${channelId}`);
 
@@ -494,8 +498,8 @@ io.on("connection", (socket) => {
     if (callback) callback({ success: true });
   });
 
-  // Atualizar status (Mute microfone, Deafen fone, Screen share)
-  socket.on("update-user-state", ({ isMuted, isDeafened, isScreenSharing }) => {
+  // Atualizar status (Mute microfone, Deafen fone, Screen share, Câmera)
+  socket.on("update-user-state", ({ isMuted, isDeafened, isScreenSharing, isCameraOn }) => {
     const user = users.get(socket.id);
     if (!user) return;
 
@@ -503,6 +507,7 @@ io.on("connection", (socket) => {
     if (typeof isDeafened === "boolean") user.isDeafened = isDeafened;
     if (typeof isScreenSharing === "boolean")
       user.isScreenSharing = isScreenSharing;
+    if (typeof isCameraOn === "boolean") user.isCameraOn = isCameraOn;
 
     // Se estiver no canal de voz, notifica a sala e todos
     if (user.currentVoiceChannel) {
@@ -511,6 +516,7 @@ io.on("connection", (socket) => {
         isMuted: user.isMuted,
         isDeafened: user.isDeafened,
         isScreenSharing: user.isScreenSharing,
+        isCameraOn: user.isCameraOn,
       });
     }
     io.emit("user-updated", user);

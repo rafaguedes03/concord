@@ -11,10 +11,101 @@ import {
   Volume2,
   VolumeX,
   Radio,
-  Sparkles
+  Sparkles,
+  Video,
+  VideoOff,
+  ChevronUp,
+  Check
 } from 'lucide-react';
 import UserTile from './UserTile';
-import { STREAM_PRESETS } from '../services/livekitEngine';
+import { LivekitEngine, STREAM_PRESETS } from '../services/livekitEngine';
+
+// Botão da barra da call com setinha que abre a lista de dispositivos (câmera, microfone ou alto-falante)
+function DeviceSplitButton({
+  kind,
+  menuTitle,
+  selectedId,
+  onSelectDevice,
+  onClick,
+  title,
+  className,
+  align = 'center',
+  children
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [devices, setDevices] = useState([]);
+  const menuRef = useRef(null);
+
+  // Fecha o menu ao clicar fora dele
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [menuOpen]);
+
+  const toggleMenu = async () => {
+    if (menuOpen) {
+      setMenuOpen(false);
+      return;
+    }
+    setMenuOpen(true);
+    setDevices(await LivekitEngine.listDevices(kind));
+  };
+
+  const activeId = selectedId || '';
+
+  return (
+    <div ref={menuRef} className="relative flex items-stretch">
+      <button
+        onClick={onClick}
+        className={`flex items-center gap-2 pl-3.5 pr-3 py-2 rounded-l-lg font-headline font-semibold text-xs transition ${className}`}
+        title={title}
+      >
+        {children}
+      </button>
+      <button
+        onClick={toggleMenu}
+        className={`px-1.5 rounded-r-lg border-l border-outline-variant/40 transition ${className}`}
+        title={`Escolher ${menuTitle}`}
+      >
+        <ChevronUp size={14} className={`transition-transform ${menuOpen ? '' : 'rotate-180'}`} />
+      </button>
+
+      {menuOpen && (
+        <div
+          className={`absolute bottom-12 bg-surface-container p-2 rounded-xl shadow-2xl border border-secondary/30 w-64 z-50 flex flex-col gap-1 ${
+            align === 'left' ? 'left-0' : 'left-1/2 -translate-x-1/2'
+          }`}
+        >
+          <span className="px-2 pt-1 pb-1.5 text-[10px] font-label font-bold uppercase tracking-wider text-on-surface-variant">
+            {menuTitle}
+          </span>
+          {[{ deviceId: '', label: 'Padrão do sistema' }, ...devices].map((device, i) => {
+            const selected = device.deviceId === activeId;
+            return (
+              <button
+                key={device.deviceId || 'default'}
+                onClick={() => {
+                  setMenuOpen(false);
+                  if (!selected) onSelectDevice && onSelectDevice(device.deviceId);
+                }}
+                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-headline font-semibold transition ${
+                  selected ? 'bg-secondary-container/40 text-secondary' : 'text-on-surface hover:bg-surface-container-high'
+                }`}
+              >
+                <span className="w-3.5 flex-shrink-0">{selected && <Check size={14} />}</span>
+                <span className="truncate">{device.label || `${menuTitle} ${i}`}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Componente para renderizar individualmente a transmissão de cada participante
 function StreamCard({
@@ -171,6 +262,14 @@ export default function VoiceCallView({
   onToggleMic,
   onToggleDeafen,
   onToggleScreenShare,
+  localCameraTrack,
+  cameraDeviceId,
+  onToggleCamera,
+  onSelectCamera,
+  micDeviceId,
+  speakerDeviceId,
+  onSelectMic,
+  onSelectSpeaker,
   onLeaveCall,
   userVolumes = {},
   locallyMutedUsers = {},
@@ -208,6 +307,10 @@ export default function VoiceCallView({
       };
     }
   }, [livekitEngine]);
+
+  // Vídeo da câmera de cada participante (preview local ou track recebida pelo LiveKit)
+  const getCameraTrack = (u) =>
+    u.id === currentUser?.id ? localCameraTrack : livekitEngine?.remoteCameraTracks?.get(u.id) || null;
 
   // Obter TODOS os usuários compartilhando tela
   const screenSharers = usersInCall.filter((u) => u.isScreenSharing);
@@ -312,6 +415,8 @@ export default function VoiceCallView({
                       user={u}
                       isSelf={isSelf}
                       compact
+                      videoTrack={getCameraTrack(u)}
+                      trackUpdateTick={trackUpdateTick}
                       isSpeaking={!!speakingUsers[u.id]}
                       selfDeafened={currentUser?.isDeafened}
                       userVolume={userVolumes[u.id] ?? 100}
@@ -336,6 +441,8 @@ export default function VoiceCallView({
                       user={u}
                       isSelf={isSelf}
                       compact={tileWidth < 260}
+                      videoTrack={getCameraTrack(u)}
+                      trackUpdateTick={trackUpdateTick}
                       isSpeaking={!!speakingUsers[u.id]}
                       selfDeafened={currentUser?.isDeafened}
                       userVolume={userVolumes[u.id] ?? 100}
@@ -354,55 +461,84 @@ export default function VoiceCallView({
       <div className="px-6 py-4 bg-surface-container-low/90 backdrop-blur-xl border-t border-outline-variant/40 flex items-center justify-between gap-4 z-30">
         {/* Mute / Desativar Som */}
         <div className="flex items-center gap-2">
-          <button
+          <DeviceSplitButton
+            kind="audioinput"
+            menuTitle="Microfone"
+            selectedId={micDeviceId}
+            onSelectDevice={onSelectMic}
             onClick={onToggleMic}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-headline font-semibold text-xs transition ${
+            align="left"
+            className={
               currentUser?.isMuted
                 ? 'bg-error-container text-error'
                 : 'bg-secondary-container/40 text-secondary hover:bg-secondary-container'
-            }`}
+            }
             title={currentUser?.isMuted ? 'Desmutar Microfone' : 'Mutar Microfone'}
           >
             {currentUser?.isMuted ? <MicOff size={16} /> : <Mic size={16} />}
             <span>{currentUser?.isMuted ? 'Mutado' : 'Microfone'}</span>
-          </button>
+          </DeviceSplitButton>
 
-          <button
+          <DeviceSplitButton
+            kind="audiooutput"
+            menuTitle="Alto-falante"
+            selectedId={speakerDeviceId}
+            onSelectDevice={onSelectSpeaker}
             onClick={onToggleDeafen}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-headline font-semibold text-xs transition ${
+            align="left"
+            className={
               currentUser?.isDeafened
                 ? 'bg-error-container text-error'
                 : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
-            }`}
+            }
             title={currentUser?.isDeafened ? 'Ativar Som' : 'Desativar Som'}
           >
             <Headphones size={16} />
             <span>{currentUser?.isDeafened ? 'Som Desativado' : 'Desativar Som'}</span>
-          </button>
+          </DeviceSplitButton>
         </div>
 
-        {/* Botão de Compartilhar Tela */}
-        <button
-          onClick={onToggleScreenShare}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-headline font-semibold text-xs transition ${
-            currentUser?.isScreenSharing
-              ? 'bg-secondary-container text-secondary shadow-[0_0_12px_rgba(0,255,204,0.3)]'
-              : 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest hover-glow-cyan'
-          }`}
-          title="Compartilhar Tela (720p 30/60 FPS ou 1080p 60 FPS)"
-        >
-          {currentUser?.isScreenSharing ? (
-            <>
-              <ScreenShareOff size={16} />
-              <span>Parar Tela</span>
-            </>
-          ) : (
-            <>
-              <ScreenShare size={16} />
-              <span>Transmitir Tela</span>
-            </>
-          )}
-        </button>
+        {/* Câmera e Compartilhar Tela */}
+        <div className="flex items-center gap-2">
+          <DeviceSplitButton
+            kind="videoinput"
+            menuTitle="Câmera"
+            selectedId={cameraDeviceId}
+            onSelectDevice={onSelectCamera}
+            onClick={onToggleCamera}
+            className={
+              currentUser?.isCameraOn
+                ? 'bg-secondary-container text-secondary shadow-[0_0_12px_rgba(0,255,204,0.3)]'
+                : 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest'
+            }
+            title={currentUser?.isCameraOn ? 'Desligar Câmera' : 'Ligar Câmera (720p 30 FPS)'}
+          >
+            {currentUser?.isCameraOn ? <VideoOff size={16} /> : <Video size={16} />}
+            <span>{currentUser?.isCameraOn ? 'Desligar Câmera' : 'Câmera'}</span>
+          </DeviceSplitButton>
+
+          <button
+            onClick={onToggleScreenShare}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-headline font-semibold text-xs transition ${
+              currentUser?.isScreenSharing
+                ? 'bg-secondary-container text-secondary shadow-[0_0_12px_rgba(0,255,204,0.3)]'
+                : 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest hover-glow-cyan'
+            }`}
+            title="Compartilhar Tela (720p 30/60 FPS ou 1080p 60 FPS)"
+          >
+            {currentUser?.isScreenSharing ? (
+              <>
+                <ScreenShareOff size={16} />
+                <span>Parar Tela</span>
+              </>
+            ) : (
+              <>
+                <ScreenShare size={16} />
+                <span>Transmitir Tela</span>
+              </>
+            )}
+          </button>
+        </div>
 
         {/* Botão Desconectar da Chamada */}
         <button
