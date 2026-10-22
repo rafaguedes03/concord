@@ -15,7 +15,11 @@ import {
   Video,
   VideoOff,
   ChevronUp,
-  Check
+  Check,
+  LayoutGrid,
+  Eye,
+  EyeOff,
+  Tv
 } from 'lucide-react';
 import UserTile from './UserTile';
 import { LivekitEngine, STREAM_PRESETS } from '../services/livekitEngine';
@@ -117,7 +121,11 @@ function StreamCard({
   streamVolume = 100,
   isStreamMuted = false,
   onStreamVolumeChange,
-  onToggleStreamMute
+  onToggleStreamMute,
+  onClick,
+  compact = false,
+  isWatching = true,
+  onToggleWatch
 }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
@@ -166,7 +174,10 @@ function StreamCard({
   return (
     <div
       ref={containerRef}
-      className="relative flex-1 bg-surface-container-lowest rounded-2xl overflow-hidden flex items-center justify-center border border-primary/30 shadow-[inset_0_0_12px_rgba(255,45,120,0.1)] group min-h-0 min-w-0"
+      onClick={onClick}
+      className={`relative bg-surface-container-lowest overflow-hidden flex items-center justify-center border border-primary/30 shadow-[inset_0_0_12px_rgba(255,45,120,0.1)] group min-h-0 min-w-0 ${
+        compact ? 'w-full aspect-video rounded-xl transition-transform hover:-translate-y-0.5' : 'flex-1 rounded-2xl'
+      } ${onClick ? 'cursor-pointer' : ''}`}
     >
       {/* Vídeo do preview local ou da transmissão recebida pelo LiveKit */}
       <video
@@ -177,13 +188,53 @@ function StreamCard({
         className="absolute inset-0 w-full h-full object-contain pointer-events-none"
       />
 
-      {!isSelf && !hasVideo && (
-        <span className="absolute inset-0 flex items-center justify-center text-sm font-label text-on-surface-variant">
+      {!isSelf && isWatching && !hasVideo && (
+        <span className={`absolute inset-0 flex items-center justify-center font-label text-on-surface-variant ${compact ? 'text-[10px]' : 'text-sm'}`}>
           Carregando transmissão...
         </span>
       )}
 
+      {/* Transmissão ainda não assistida: nada é baixado até a pessoa escolher assistir */}
+      {!isWatching && (
+        <div className={`absolute inset-0 flex flex-col items-center justify-center ${compact ? 'gap-1 pb-5' : 'gap-3'}`}>
+          {!compact && (
+            <>
+              <Tv size={36} className="text-primary" />
+              <span className="text-sm font-headline font-semibold text-on-surface">
+                {sharer.nickname} está transmitindo
+              </span>
+            </>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleWatch && onToggleWatch(sharer.id, true);
+            }}
+            className={`flex items-center gap-1.5 rounded-lg bg-primary text-on-primary font-headline font-bold transition hover:bg-primary/90 glow-pink ${
+              compact ? 'px-2 py-1 text-[10px]' : 'px-4 py-2 text-xs'
+            }`}
+            title="Assistir Transmissão"
+          >
+            <Eye size={compact ? 12 : 16} />
+            <span>{compact ? 'Assistir' : 'Assistir Transmissão'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Miniatura da faixa: só o selo de ao vivo e o apelido */}
+      {compact && (
+        <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center gap-1.5 z-10 min-w-0">
+          <span className="bg-primary text-on-primary font-headline font-bold text-[9px] px-1.5 py-0.5 rounded flex-shrink-0">
+            AO VIVO
+          </span>
+          <span className="bg-surface-container-lowest/80 backdrop-blur px-1.5 py-0.5 rounded text-[10px] font-headline font-semibold text-on-surface truncate">
+            {sharer.nickname}
+          </span>
+        </div>
+      )}
+
       {/* Badge de Transmissão */}
+      {!compact && (
       <div className="absolute top-3 left-3 flex items-center gap-3 z-10">
         <span className="bg-primary text-on-primary font-headline font-bold text-xs px-2.5 py-1 rounded-md flex items-center gap-1.5 glow-pink">
           <span className="w-1.5 h-1.5 rounded-full bg-on-primary animate-pulse"></span>
@@ -199,10 +250,23 @@ function StreamCard({
           <span>{meta.label}</span>
         </span>
       </div>
+      )}
 
-      {/* Controles da Transmissão */}
-      <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
-        {!isSelf && (
+      {/* Controles da Transmissão (cliques aqui não mudam o destaque) */}
+      {!compact && (
+      <div className="absolute top-3 right-3 flex items-center gap-2 z-10" onClick={(e) => e.stopPropagation()}>
+        {!isSelf && isWatching && (
+          <button
+            onClick={() => onToggleWatch && onToggleWatch(sharer.id, false)}
+            className="bg-surface-container-lowest/70 hover:bg-surface-container-high text-on-surface px-2.5 py-2 rounded-lg transition backdrop-blur flex items-center gap-1.5 text-xs font-headline font-semibold"
+            title="Parar de Assistir"
+          >
+            <EyeOff size={16} />
+            <span>Parar de assistir</span>
+          </button>
+        )}
+
+        {!isSelf && isWatching && (
           <div className="relative">
             <button
               onClick={() => onToggleStreamMute && onToggleStreamMute(sharer.id)}
@@ -239,14 +303,17 @@ function StreamCard({
           </div>
         )}
 
-        <button
-          onClick={toggleFullscreen}
-          className="bg-surface-container-lowest/70 hover:bg-surface-container-high text-on-surface p-2 rounded-lg transition backdrop-blur"
-          title={isFullscreen ? 'Sair da Tela Cheia' : 'Tela Cheia'}
-        >
-          {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-        </button>
+        {isWatching && (
+          <button
+            onClick={toggleFullscreen}
+            className="bg-surface-container-lowest/70 hover:bg-surface-container-high text-on-surface p-2 rounded-lg transition backdrop-blur"
+            title={isFullscreen ? 'Sair da Tela Cheia' : 'Tela Cheia'}
+          >
+            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          </button>
+        )}
       </div>
+      )}
     </div>
   );
 }
@@ -315,22 +382,108 @@ export default function VoiceCallView({
   // Obter TODOS os usuários compartilhando tela
   const screenSharers = usersInCall.filter((u) => u.isScreenSharing);
 
+  // A própria transmissão é sempre preview local; as dos outros só baixam depois de "Assistir"
+  const isWatchingStream = (userId) => userId === currentUser?.id || !!livekitEngine?.isWatchingStream(userId);
+  const handleToggleWatch = (userId, watching) => {
+    livekitEngine?.setWatchingStream(userId, watching);
+    setTrackUpdateTick((t) => t + 1);
+  };
+
+  // Ocultar participantes sem câmera (preferência lembrada entre as calls)
+  const [hideNoVideo, setHideNoVideo] = useState(() => {
+    try {
+      return localStorage.getItem('dc_hide_no_video') === '1';
+    } catch (e) {
+      return false;
+    }
+  });
+  const toggleHideNoVideo = () => {
+    setHideNoVideo((prev) => {
+      try {
+        localStorage.setItem('dc_hide_no_video', prev ? '0' : '1');
+      } catch (e) {}
+      return !prev;
+    });
+  };
+  const visibleUsers = hideNoVideo ? usersInCall.filter((u) => u.isCameraOn || !!getCameraTrack(u)) : usersInCall;
+
+  // Participante ou transmissão em destaque (como no Discord); null = grade normal
+  const [focused, setFocused] = useState(null);
+  const focusedStream = focused?.type === 'stream' ? screenSharers.find((u) => u.id === focused.id) : null;
+  const focusedUser = focused?.type === 'user' ? usersInCall.find((u) => u.id === focused.id) : null;
+  const hasFocus = !!(focusedStream || focusedUser);
+
+  // Volta para a grade se quem estava em destaque saiu da call ou parou de transmitir
+  useEffect(() => {
+    if (focused && !hasFocus) setFocused(null);
+  }, [focused, hasFocus]);
+
+  // Esc também volta para a grade (fora da tela cheia, onde o Esc só sai dela)
+  useEffect(() => {
+    if (!hasFocus) return;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape' && !document.fullscreenElement) setFocused(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [hasFocus]);
+
   const isAiNoise = noiseMode && noiseMode !== 'manual';
 
   // Escolhe o número de colunas que gera o maior tile 16:9 cabendo na largura E na altura
   const GRID_GAP = 12;
   const MAX_TILE_WIDTH = 960;
-  let tileWidth = 0;
-  const count = usersInCall.length;
-  if (count > 0 && gridSize.width > 0 && gridSize.height > 0) {
-    for (let cols = 1; cols <= count; cols++) {
-      const rows = Math.ceil(count / cols);
-      const byWidth = (gridSize.width - GRID_GAP * (cols - 1)) / cols;
-      const byHeight = ((gridSize.height - GRID_GAP * (rows - 1)) / rows) * (16 / 9);
-      tileWidth = Math.max(tileWidth, Math.min(byWidth, byHeight));
+  const fitTileWidth = (count, maxWidth) => {
+    let best = 0;
+    if (count > 0 && gridSize.width > 0 && gridSize.height > 0) {
+      for (let cols = 1; cols <= count; cols++) {
+        const rows = Math.ceil(count / cols);
+        const byWidth = (gridSize.width - GRID_GAP * (cols - 1)) / cols;
+        const byHeight = ((gridSize.height - GRID_GAP * (rows - 1)) / rows) * (16 / 9);
+        best = Math.max(best, Math.min(byWidth, byHeight));
+      }
     }
-    tileWidth = Math.floor(Math.min(tileWidth, MAX_TILE_WIDTH));
-  }
+    return Math.floor(Math.min(best, maxWidth));
+  };
+  const tileWidth = fitTileWidth(visibleUsers.length, MAX_TILE_WIDTH);
+  // No destaque o tile ocupa o palco inteiro
+  const stageTileWidth = fitTileWidth(1, Infinity);
+
+  const renderUserTile = (u, { compact = false, focusable = true } = {}) => (
+    <UserTile
+      user={u}
+      isSelf={u.id === currentUser?.id}
+      compact={compact}
+      videoTrack={getCameraTrack(u)}
+      trackUpdateTick={trackUpdateTick}
+      isSpeaking={!!speakingUsers[u.id]}
+      selfDeafened={currentUser?.isDeafened}
+      userVolume={userVolumes[u.id] ?? 100}
+      isLocallyMuted={!!locallyMutedUsers[u.id]}
+      onVolumeChange={onVolumeChange}
+      onToggleLocalMute={onToggleLocalMute}
+      onClick={focusable ? () => setFocused({ type: 'user', id: u.id }) : undefined}
+    />
+  );
+
+  const renderStreamCard = (sharer, { compact = false, focusable = true } = {}) => (
+    <StreamCard
+      key={sharer.id}
+      sharer={sharer}
+      isSelf={sharer.id === currentUser?.id}
+      localScreenStream={localScreenStream}
+      livekitEngine={livekitEngine}
+      trackUpdateTick={trackUpdateTick}
+      streamVolume={streamVolumes[sharer.id] ?? 100}
+      isStreamMuted={!!streamMuted[sharer.id]}
+      onStreamVolumeChange={onStreamVolumeChange}
+      onToggleStreamMute={onToggleStreamMute}
+      compact={compact}
+      isWatching={isWatchingStream(sharer.id)}
+      onToggleWatch={handleToggleWatch}
+      onClick={focusable ? () => setFocused({ type: 'stream', id: sharer.id }) : undefined}
+    />
+  );
 
   return (
     <div className="flex-1 bg-background bg-grid flex flex-col h-full relative overflow-hidden select-none">
@@ -375,11 +528,68 @@ export default function VoiceCallView({
             </span>
           </div>
         </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={toggleHideNoVideo}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-headline font-semibold text-xs transition ${
+              hideNoVideo
+                ? 'bg-secondary-container/40 text-secondary hover:bg-secondary-container'
+                : 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest hover-glow-cyan'
+            }`}
+            title={hideNoVideo ? 'Mostrar todos os participantes' : 'Ocultar participantes sem vídeo'}
+          >
+            {hideNoVideo ? <Eye size={16} /> : <VideoOff size={16} />}
+            <span>{hideNoVideo ? 'Mostrar todos' : 'Ocultar sem vídeo'}</span>
+          </button>
+
+          {hasFocus && (
+            <button
+              onClick={() => setFocused(null)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-container-highest hover-glow-cyan font-headline font-semibold text-xs transition"
+              title="Voltar à grade (Esc)"
+            >
+              <LayoutGrid size={16} />
+              <span>Voltar à grade</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Área Central: Grade de Transmissões OU Grade de Participantes */}
-      <div className={`flex-1 min-h-0 px-6 pb-4 flex flex-col ${screenSharers.length > 0 ? 'overflow-hidden' : 'overflow-visible'}`}>
-        {screenSharers.length > 0 ? (
+      <div className={`flex-1 min-h-0 px-6 pb-4 flex flex-col ${screenSharers.length > 0 || hasFocus ? 'overflow-hidden' : 'overflow-visible'}`}>
+        {hasFocus ? (
+          // MODO DESTAQUE: participante ou transmissão escolhida em tamanho grande, o resto na faixa inferior
+          <div className="flex-1 min-h-0 flex flex-col gap-4">
+            {focusedStream ? (
+              <div className="flex-1 min-h-0 flex">{renderStreamCard(focusedStream, { focusable: false })}</div>
+            ) : (
+              <div ref={setGridEl} className="flex-1 min-h-0 flex items-center justify-center">
+                {stageTileWidth > 0 && (
+                  <div style={{ width: stageTileWidth }}>{renderUserTile(focusedUser, { focusable: false })}</div>
+                )}
+              </div>
+            )}
+
+            {/* Faixa inferior: clicar em uma miniatura troca o destaque */}
+            <div className="flex items-end justify-center gap-3 flex-shrink-0">
+              {screenSharers
+                .filter((s) => s.id !== focusedStream?.id)
+                .map((sharer) => (
+                  <div key={`stream-${sharer.id}`} className="flex-1 min-w-0 max-w-44">
+                    {renderStreamCard(sharer, { compact: true })}
+                  </div>
+                ))}
+              {visibleUsers
+                .filter((u) => u.id !== focusedUser?.id)
+                .map((u) => (
+                  <div key={u.id} className="flex-1 min-w-0 max-w-44">
+                    {renderUserTile(u, { compact: true })}
+                  </div>
+                ))}
+            </div>
+          </div>
+        ) : screenSharers.length > 0 ? (
           // MODO MULTI-TRANSMISSÃO: Enquadra 1, 2, 3 ou mais telas perfeitamente
           <div className="flex-1 min-h-0 flex flex-col gap-4">
             <div className={`flex-1 min-h-0 grid gap-4 auto-rows-fr ${
@@ -389,70 +599,39 @@ export default function VoiceCallView({
                 ? 'grid-cols-1 md:grid-cols-2'
                 : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-2 auto-rows-fr'
             }`}>
-              {screenSharers.map((sharer) => (
-                <StreamCard
-                  key={sharer.id}
-                  sharer={sharer}
-                  isSelf={sharer.id === currentUser?.id}
-                  localScreenStream={localScreenStream}
-                  livekitEngine={livekitEngine}
-                  trackUpdateTick={trackUpdateTick}
-                  streamVolume={streamVolumes[sharer.id] ?? 100}
-                  isStreamMuted={!!streamMuted[sharer.id]}
-                  onStreamVolumeChange={onStreamVolumeChange}
-                  onToggleStreamMute={onToggleStreamMute}
-                />
-              ))}
+              {screenSharers.map((sharer) => renderStreamCard(sharer))}
             </div>
 
             {/* Faixa inferior de miniaturas dos participantes */}
             <div className="flex items-end justify-center gap-3 flex-shrink-0">
-              {usersInCall.map((u) => {
-                const isSelf = u.id === currentUser?.id;
-                return (
-                  <div key={u.id} className="flex-1 min-w-0 max-w-44">
-                    <UserTile
-                      user={u}
-                      isSelf={isSelf}
-                      compact
-                      videoTrack={getCameraTrack(u)}
-                      trackUpdateTick={trackUpdateTick}
-                      isSpeaking={!!speakingUsers[u.id]}
-                      selfDeafened={currentUser?.isDeafened}
-                      userVolume={userVolumes[u.id] ?? 100}
-                      isLocallyMuted={!!locallyMutedUsers[u.id]}
-                      onVolumeChange={onVolumeChange}
-                      onToggleLocalMute={onToggleLocalMute}
-                    />
-                  </div>
-                );
-              })}
+              {visibleUsers.map((u) => (
+                <div key={u.id} className="flex-1 min-w-0 max-w-44">
+                  {renderUserTile(u, { compact: true })}
+                </div>
+              ))}
             </div>
           </div>
         ) : (
           // MODO GRADE DE PARTICIPANTES (Nenhum compartilhamento ativo): tiles 16:9 que sempre cabem na tela
           <div ref={setGridEl} className="flex-1 min-h-0 flex flex-wrap items-center justify-center content-center" style={{ gap: GRID_GAP }}>
             {tileWidth > 0 &&
-              usersInCall.map((u) => {
-                const isSelf = u.id === currentUser?.id;
-                return (
-                  <div key={u.id} style={{ width: tileWidth }}>
-                    <UserTile
-                      user={u}
-                      isSelf={isSelf}
-                      compact={tileWidth < 260}
-                      videoTrack={getCameraTrack(u)}
-                      trackUpdateTick={trackUpdateTick}
-                      isSpeaking={!!speakingUsers[u.id]}
-                      selfDeafened={currentUser?.isDeafened}
-                      userVolume={userVolumes[u.id] ?? 100}
-                      isLocallyMuted={!!locallyMutedUsers[u.id]}
-                      onVolumeChange={onVolumeChange}
-                      onToggleLocalMute={onToggleLocalMute}
-                    />
-                  </div>
-                );
-              })}
+              visibleUsers.map((u) => (
+                <div key={u.id} style={{ width: tileWidth }}>
+                  {renderUserTile(u, { compact: tileWidth < 260 })}
+                </div>
+              ))}
+            {visibleUsers.length === 0 && (
+              <div className="flex flex-col items-center gap-3 text-on-surface-variant">
+                <VideoOff size={32} />
+                <span className="text-sm font-label">Ninguém está com a câmera ligada</span>
+                <button
+                  onClick={toggleHideNoVideo}
+                  className="px-3.5 py-2 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-container-highest font-headline font-semibold text-xs transition"
+                >
+                  Mostrar todos
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

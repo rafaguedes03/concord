@@ -1,6 +1,6 @@
 {
   "name": "concord",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "Concord - Chamadas com IA DeepFilterNet3, Transmissão Fluida e Chat em Tempo Real",
   "main": "src/main/index.js",
   "scripts": {
