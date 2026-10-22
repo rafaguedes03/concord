@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
+  platform: process.platform,
   getScreenSources: async () => {
     return await ipcRenderer.invoke('get-screen-sources');
   },

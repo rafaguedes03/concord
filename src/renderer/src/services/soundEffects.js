@@ -4,12 +4,24 @@
 class SoundEffectsManager {
   constructor() {
     this.ctx = null;
+    this.sinkId = '';
+  }
+
+  // Toca os efeitos no mesmo alto-falante escolhido para a call ('' = padrão do sistema)
+  setOutputDevice(deviceId) {
+    this.sinkId = deviceId || '';
+    if (this.ctx && this.ctx.setSinkId) {
+      this.ctx.setSinkId(this.sinkId).catch(() => {});
+    }
   }
 
   ensureContext() {
     if (!this.ctx || this.ctx.state === 'closed') {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AudioCtx();
+      if (this.sinkId && this.ctx.setSinkId) {
+        this.ctx.setSinkId(this.sinkId).catch(() => {});
+      }
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});

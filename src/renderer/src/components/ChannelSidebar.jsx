@@ -6,7 +6,8 @@ import {
   Headphones,
   Settings,
   PhoneOff,
-  Trash2
+  Trash2,
+  Video
 } from 'lucide-react';
 
 export default function ChannelSidebar({
@@ -152,6 +153,7 @@ export default function ChannelSidebar({
                                   AO VIVO
                                 </span>
                               )}
+                              {u.isCameraOn && <Video size={12} className="text-secondary" />}
                               {u.isMuted && <MicOff size={12} className="text-error" />}
                               {u.isDeafened && <Headphones size={12} className="text-error" />}
                             </div>

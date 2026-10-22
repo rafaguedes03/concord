@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Headphones, Volume2, VolumeX, Tv, AudioLines } from 'lucide-react';
 
 export default function UserTile({
@@ -10,9 +10,24 @@ export default function UserTile({
   onToggleLocalMute,
   userVolume = 100,
   isLocallyMuted = false,
-  compact = false
+  compact = false,
+  videoTrack = null,
+  trackUpdateTick = 0
 }) {
   const [showVolumePopup, setShowVolumePopup] = useState(false);
+  const videoRef = useRef(null);
+  const hasVideo = !!videoTrack;
+
+  // Câmera do participante no lugar do avatar (o adaptiveStream escolhe a camada pelo tamanho do tile)
+  useEffect(() => {
+    const videoEl = videoRef.current;
+    if (!videoTrack || !videoEl) return undefined;
+    videoTrack.attach(videoEl);
+    videoEl.play().catch(() => {});
+    return () => {
+      try { videoTrack.detach(videoEl); } catch (e) {}
+    };
+  }, [videoTrack, trackUpdateTick]);
 
   const initialLetter = (user.nickname || '?').charAt(0).toUpperCase();
 
@@ -34,11 +49,24 @@ export default function UserTile({
     <div
       className={`group relative w-full aspect-video rounded-xl bg-surface-container shadow-md flex flex-col items-center justify-between transition-transform hover:-translate-y-0.5 ${
         compact ? 'p-2' : 'p-3'
-      }`}
+      } ${hasVideo && isSpeaking ? 'ring-2 ring-secondary glow-cyan' : ''}`}
     >
+      {/* Vídeo da câmera cobrindo o tile (preview próprio espelhado) */}
+      {hasVideo && (
+        <div className="absolute inset-0 rounded-xl overflow-hidden bg-surface-container-lowest">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className={`w-full h-full object-cover pointer-events-none ${isSelf ? '-scale-x-100' : ''}`}
+          />
+        </div>
+      )}
+
       {/* Topo: badge de estado e indicador de mute local */}
       {!compact && (
-        <div className="w-full h-5 flex items-center justify-between">
+        <div className="relative w-full h-5 flex items-center justify-between">
           {badge ? (
             <span className={`flex items-center gap-1 text-[10px] font-label font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${badge.cls}`}>
               {badge.icon}
@@ -53,52 +81,67 @@ export default function UserTile({
         </div>
       )}
 
-      {/* Avatar com halo pulsante quando fala */}
-      <div className={`relative ${compact ? 'w-[26%] max-w-12' : 'w-[22%] max-w-28'} aspect-square my-1`}>
-        {isSpeaking && (
-          <div className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-secondary to-primary blur halo-shimmer" />
-        )}
-        <div
-          className={`relative w-full h-full rounded-2xl flex items-center justify-center text-on-surface font-bold overflow-hidden ${
-            compact ? 'text-base' : 'text-2xl'
-          } ${isSpeaking ? 'ring-2 ring-secondary glow-cyan' : 'ring-2 ring-outline-variant'}`}
-          style={{ backgroundColor: user.avatarColor || '#b3004e' }}
-        >
-          {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt={user.nickname} className="w-full h-full object-cover" />
-          ) : (
-            initialLetter
+      {/* Avatar com halo pulsante quando fala (some quando a câmera está ligada) */}
+      {hasVideo ? (
+        <div className="flex-1" />
+      ) : (
+        <div className={`relative ${compact ? 'w-[26%] max-w-12' : 'w-[22%] max-w-28'} aspect-square my-1`}>
+          {isSpeaking && (
+            <div className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-secondary to-primary blur halo-shimmer" />
+          )}
+          <div
+            className={`relative w-full h-full rounded-2xl flex items-center justify-center text-on-surface font-bold overflow-hidden ${
+              compact ? 'text-base' : 'text-2xl'
+            } ${isSpeaking ? 'ring-2 ring-secondary glow-cyan' : 'ring-2 ring-outline-variant'}`}
+            style={{ backgroundColor: user.avatarColor || '#b3004e' }}
+          >
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user.nickname} className="w-full h-full object-cover" />
+            ) : (
+              initialLetter
+            )}
+          </div>
+          {/* Selo do microfone no canto do avatar */}
+          {(isSpeaking || user.isMuted || user.isDeafened) && (
+            <span
+              className={`absolute -bottom-1 -right-1 rounded-full flex items-center justify-center ${
+                compact ? 'w-4 h-4' : 'w-6 h-6'
+              } ${
+                user.isDeafened || user.isMuted
+                  ? 'bg-surface-container-lowest text-error'
+                  : 'bg-secondary text-on-secondary'
+              }`}
+            >
+              {user.isDeafened ? (
+                <Headphones size={compact ? 9 : 13} />
+              ) : user.isMuted ? (
+                <MicOff size={compact ? 9 : 13} />
+              ) : (
+                <Mic size={compact ? 9 : 13} />
+              )}
+            </span>
           )}
         </div>
-        {/* Selo do microfone no canto do avatar */}
-        {(isSpeaking || user.isMuted || user.isDeafened) && (
-          <span
-            className={`absolute -bottom-1 -right-1 rounded-full flex items-center justify-center ${
-              compact ? 'w-4 h-4' : 'w-6 h-6'
-            } ${
-              user.isDeafened || user.isMuted
-                ? 'bg-surface-container-lowest text-error'
-                : 'bg-secondary text-on-secondary'
-            }`}
-          >
-            {user.isDeafened ? (
-              <Headphones size={compact ? 9 : 13} />
-            ) : user.isMuted ? (
-              <MicOff size={compact ? 9 : 13} />
-            ) : (
-              <Mic size={compact ? 9 : 13} />
-            )}
+      )}
+
+      {/* Apelido e barras de áudio (com fundo translúcido sobre o vídeo) */}
+      <div
+        className={`relative min-w-0 ${
+          hasVideo
+            ? 'self-start max-w-[80%] flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface-container-lowest/70 backdrop-blur'
+            : 'w-full text-center'
+        }`}
+      >
+        {hasVideo && (user.isDeafened || user.isMuted) && (
+          <span className="text-error flex-shrink-0">
+            {user.isDeafened ? <Headphones size={compact ? 10 : 12} /> : <MicOff size={compact ? 10 : 12} />}
           </span>
         )}
-      </div>
-
-      {/* Apelido e barras de áudio */}
-      <div className="w-full text-center min-w-0">
         <p className={`font-headline font-bold text-on-surface truncate flex items-center justify-center gap-1.5 ${compact ? 'text-[11px]' : 'text-sm'}`}>
           <span className="truncate">{user.nickname}</span>
           {isSelf && <span className="text-[9px] font-label font-bold uppercase text-secondary flex-shrink-0">Você</span>}
         </p>
-        {!compact && (
+        {!compact && !hasVideo && (
           <div className="flex items-center justify-center gap-1 h-3 mt-1">
             {isSpeaking && (
               <>

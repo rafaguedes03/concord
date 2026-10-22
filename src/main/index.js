@@ -8,9 +8,11 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
-// Otimizações para captura de múltiplos monitores (DirectX 11 + WGC)
-app.commandLine.appendSwitch('use-angle', 'd3d11');
-app.commandLine.appendSwitch('enable-features', 'WebRtcAllowWgcScreenCapturer');
+// Otimizações para captura de múltiplos monitores (DirectX 11 + WGC), só existem no Windows
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('use-angle', 'd3d11');
+  app.commandLine.appendSwitch('enable-features', 'WebRtcAllowWgcScreenCapturer');
+}
 
 let mainWindow;
 let tray = null;
@@ -105,7 +107,13 @@ function createWindow() {
         const found = sources.find((s) => s.id === selectedDisplaySourceId);
         if (found) chosen = found;
       }
-      callback({ video: chosen });
+      // No Windows o renderer pede restrictOwnAudio: o Electron troca o loopback por
+      // "loopbackWithoutChrome", que capta o áudio do sistema sem o som do próprio Concord
+      if (request.audioRequested && process.platform === 'win32') {
+        callback({ video: chosen, audio: 'loopback' });
+      } else {
+        callback({ video: chosen });
+      }
     });
   });
 }

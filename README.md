@@ -13,11 +13,12 @@ Um aplicativo desktop completo e moderno com foco em comunicação por voz de al
 
 2. **Compartilhamento de Tela Otimizado (1080p @ 60 FPS):**
    - Resoluções **720/1080p** e taxa de quadros a **30/60 FPS**.
-   - Bitrate elevado (~4.5 Mbps) com flag `contentHint: "motion"` para jogos rápidos e vídeos fluidos sem pixelização ou travamentos.
+   - Vídeo H.264 por hardware via LiveKit (WebRTC) com bitrate fixo por preset (3 / 5 / 8 Mbps) e `contentHint: "motion"` para jogos rápidos e vídeos fluidos.
    - Seletor nativo estilo Discord para escolher entre telas inteiras ou janelas específicas com miniaturas ao vivo.
    - Badge "AO VIVO 720p 60FPS", botão de tela cheia e visualização em destaque.
 
-3. **Chamadas de Voz Completas (WebRTC Mesh):**
+3. **Chamadas de Voz Completas (LiveKit SFU / WebRTC):**
+   - Opus sobre UDP com FEC/RED, jitter buffer adaptativo e reconexão automática.
    - **Indicador de fala ao vivo:** O avatar pulsa com uma borda verde vibrante quando a pessoa fala.
    - **Controles próprios:**
      - Botão de **Mutar Microfone** (com ícone vermelho de corte).
@@ -50,6 +51,14 @@ INICIAR-SERVIDOR.bat
 ```
 O terminal mostrará o seu IP para você passar aos seus amigos (ex: `http://192.168.1.100:3000`).
 
+#### LiveKit (voz e transmissão de tela)
+A voz e a tela passam pelo [LiveKit](https://github.com/livekit/livekit), que o `server.js` inicia sozinho:
+1. Baixe o `livekit-server` da [página de releases](https://github.com/livekit/livekit/releases) para o seu sistema e coloque em:
+   - Windows: `server/bin/livekit-server.exe`
+   - Linux: `server/bin/livekit-server` (ou instale no `PATH`)
+2. Copie `server/.env.example` para `server/.env` e ajuste. Para amigos entrando pelo IP público, use `LIVEKIT_USE_EXTERNAL_IP=true`.
+3. Libere no roteador/firewall: **TCP 3002** (servidor), **TCP 7880** (sinalização LiveKit), **TCP 7881** (fallback de mídia) e **UDP 7882** (mídia).
+
 ### 2. Abrir o Aplicativo:
 Dê dois cliques no executável:
 ```
@@ -68,7 +77,7 @@ dist-electron\Discord Clone.exe
 
 ## 🛠️ Scripts Disponíveis (Desenvolvedor)
 
-- `npm run start:server` - Inicia o servidor de sinalização WebRTC.
+- `npm run start:server` - Inicia o servidor (socket.io + LiveKit SFU).
 - `npm run dev` - Roda o frontend no navegador com Vite.
 - `npm run dev:electron` - Abre o app diretamente no Electron em modo dev.
 - `npm run build:exe` - Compila o executável `.exe` Windows portátil em `dist-electron/`.

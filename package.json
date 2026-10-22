@@ -1,6 +1,6 @@
 {
   "name": "concord",
-  "version": "1.5.1",
+  "version": "1.5.5",
   "description": "Concord - Chamadas com IA DeepFilterNet3, Transmissão Fluida e Chat em Tempo Real",
   "main": "src/main/index.js",
   "scripts": {
@@ -55,7 +55,7 @@
     "autoprefixer": "^10.4.20",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
-    "electron": "^33.2.1",
+    "electron": "^44.9.3",
     "electron-builder": "^25.1.8",
     "express": "^4.21.2",
     "livekit-client": "^2.23.0",
