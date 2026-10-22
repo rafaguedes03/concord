@@ -15,7 +15,7 @@ import { LivekitEngine, STREAM_PRESETS } from './services/livekitEngine';
 import { normalizeNoiseMode } from './services/voiceProcessor';
 import { soundEffects } from './services/soundEffects';
 
-const CURRENT_APP_VERSION = '1.5.5';
+const CURRENT_APP_VERSION = '1.5.6';
 
 // true só se a versão do servidor for mais nova que a instalada (evita oferecer downgrade)
 const isNewerVersion = (version) => {
@@ -446,9 +446,20 @@ export default function App() {
     });
 
     // Eventos de voz
-    socket.on('user-joined-voice-channel', ({ user }) => {
+    socket.on('user-joined-voice-channel', ({ user, channelId }) => {
       console.log(`[Voz] Usuário ${user.nickname} entrou na call`);
       setUsers((prev) => [...prev.filter((u) => u.id !== user.id), user]);
+      // Avisa quem já está na call (quem entrou ouve o próprio som em joinVoiceChannel)
+      if (currentVoiceChannelRef.current?.id === channelId && user.id !== socket.id) {
+        soundEffects.playJoinCall();
+      }
+    });
+
+    // O estado do usuário chega pelo 'user-updated'; aqui só tocamos o som para quem ficou na call
+    socket.on('user-left-voice-channel', ({ userId, channelId }) => {
+      if (currentVoiceChannelRef.current?.id === channelId && userId !== socket.id) {
+        soundEffects.playLeaveCall();
+      }
     });
 
     socket.on('user-state-changed', ({ userId, isMuted, isDeafened, isScreenSharing, isCameraOn }) => {

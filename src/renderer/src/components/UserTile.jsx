@@ -12,7 +12,8 @@ export default function UserTile({
   isLocallyMuted = false,
   compact = false,
   videoTrack = null,
-  trackUpdateTick = 0
+  trackUpdateTick = 0,
+  onClick
 }) {
   const [showVolumePopup, setShowVolumePopup] = useState(false);
   const videoRef = useRef(null);
@@ -47,9 +48,10 @@ export default function UserTile({
 
   return (
     <div
+      onClick={onClick}
       className={`group relative w-full aspect-video rounded-xl bg-surface-container shadow-md flex flex-col items-center justify-between transition-transform hover:-translate-y-0.5 ${
         compact ? 'p-2' : 'p-3'
-      } ${hasVideo && isSpeaking ? 'ring-2 ring-secondary glow-cyan' : ''}`}
+      } ${onClick ? 'cursor-pointer' : ''} ${hasVideo && isSpeaking ? 'ring-2 ring-secondary glow-cyan' : ''}`}
     >
       {/* Vídeo da câmera cobrindo o tile (preview próprio espelhado) */}
       {hasVideo && (
@@ -157,7 +159,8 @@ export default function UserTile({
 
       {/* Botão de Controle de Volume para outros participantes (aparece no hover) */}
       {!isSelf && (
-        <div className="absolute bottom-2 right-2 z-20">
+        // Cliques no controle de volume não destacam o participante
+        <div className="absolute bottom-2 right-2 z-20" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => setShowVolumePopup(!showVolumePopup)}
             className={`p-1.5 rounded-md bg-surface-container-lowest/80 backdrop-blur transition ${

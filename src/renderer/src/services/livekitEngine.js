@@ -53,6 +53,9 @@ export class LivekitEngine {
     this.remoteVideoTracks = new Map();
     // Tracks de câmera: userId -> RemoteVideoTrack
     this.remoteCameraTracks = new Map();
+    // Transmissões que a pessoa escolheu assistir (tela e som da tela só são assinados nelas)
+    this.watchedStreams = new Set();
+    this.watchedChannelId = null;
 
     // Microfone e processador de voz
     this.voiceProcessor = null;
@@ -94,6 +97,11 @@ export class LivekitEngine {
 
     this.currentChannelId = channelId;
     this.isLeaving = false;
+    // Reconectar na mesma call mantém as transmissões assistidas; trocar de canal zera
+    if (this.watchedChannelId !== channelId) {
+      this.watchedStreams.clear();
+      this.watchedChannelId = channelId;
+    }
 
     const room = new Room({
       adaptiveStream: true,
@@ -121,7 +129,13 @@ export class LivekitEngine {
 
     try {
       console.log(`[LiveKit] Conectando a ${livekitUrl} na sala ${channelId}...`);
-      await room.connect(livekitUrl, token);
+      // Assinatura manual: voz e câmera sempre, transmissões só quando a pessoa escolhe assistir
+      await room.connect(livekitUrl, token, { autoSubscribe: false });
+      for (const participant of room.remoteParticipants.values()) {
+        for (const publication of participant.trackPublications.values()) {
+          this.applySubscription(publication, participant);
+        }
+      }
       await room.startAudio().catch(() => {});
       console.log('[LiveKit] Conectado com sucesso à sala!', room.name);
       return room;
@@ -135,7 +149,44 @@ export class LivekitEngine {
     }
   }
 
+  isStreamSource(source) {
+    return source === Track.Source.ScreenShare || source === Track.Source.ScreenShareAudio;
+  }
+
+  applySubscription(publication, participant) {
+    const wanted = !this.isStreamSource(publication.source) || this.watchedStreams.has(participant.identity);
+    // `subscribed` fica undefined até a primeira escolha (isDesired já seria true), por isso comparamos com ele
+    if (publication.subscribed !== wanted) publication.setSubscribed(wanted);
+  }
+
+  isWatchingStream(userId) {
+    return this.watchedStreams.has(userId);
+  }
+
+  // Assistir / parar de assistir a transmissão de um participante (assina ou solta a tela e o som dela)
+  setWatchingStream(userId, watching) {
+    if (watching) this.watchedStreams.add(userId);
+    else this.watchedStreams.delete(userId);
+    const participant = this.room?.getParticipantByIdentity(userId);
+    if (!participant || participant === this.room.localParticipant) return;
+    for (const publication of participant.trackPublications.values()) {
+      if (this.isStreamSource(publication.source)) this.applySubscription(publication, participant);
+    }
+  }
+
   setupRoomEvents(room) {
+    // Novas tracks publicadas: decide se assina (transmissões dependem de quem está assistindo)
+    room.on(RoomEvent.TrackPublished, (publication, participant) => {
+      this.applySubscription(publication, participant);
+    });
+
+    // Fim da transmissão: na próxima vez que a pessoa transmitir, começa sem assistir
+    room.on(RoomEvent.TrackUnpublished, (publication, participant) => {
+      if (publication.source === Track.Source.ScreenShare) {
+        this.watchedStreams.delete(participant.identity);
+      }
+    });
+
     // Inscrição em tracks de outros participantes (Voz, Tela ou Câmera)
     room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
       const userId = participant.identity;
