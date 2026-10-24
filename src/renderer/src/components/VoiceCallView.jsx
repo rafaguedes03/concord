@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import UserTile from './UserTile';
 import { LivekitEngine, STREAM_PRESETS } from '../services/livekitEngine';
+import { soundEffects } from '../services/soundEffects';
+import { socketService } from '../services/socket';
 
 // Botão da barra da call com setinha que abre a lista de dispositivos (câmera, microfone ou alto-falante)
 function DeviceSplitButton({
@@ -385,7 +387,12 @@ export default function VoiceCallView({
   // A própria transmissão é sempre preview local; as dos outros só baixam depois de "Assistir"
   const isWatchingStream = (userId) => userId === currentUser?.id || !!livekitEngine?.isWatchingStream(userId);
   const handleToggleWatch = (userId, watching) => {
+    if (watching === isWatchingStream(userId)) return;
+    if (watching) soundEffects.playJoinStream();
+    else soundEffects.playLeaveStream();
     livekitEngine?.setWatchingStream(userId, watching);
+    // Avisa quem transmite (ele ouve o som de espectador entrando/saindo)
+    socketService.getSocket()?.emit('stream-watch', { sharerId: userId, watching });
     setTrackUpdateTick((t) => t + 1);
   };
 
@@ -686,14 +693,14 @@ export default function VoiceCallView({
             onSelectDevice={onSelectCamera}
             onClick={onToggleCamera}
             className={
-              currentUser?.isCameraOn
+              localCameraTrack
                 ? 'bg-secondary-container text-secondary shadow-[0_0_12px_rgba(0,255,204,0.3)]'
                 : 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest'
             }
-            title={currentUser?.isCameraOn ? 'Desligar Câmera' : 'Ligar Câmera (720p 30 FPS)'}
+            title={localCameraTrack ? 'Desligar Câmera' : 'Ligar Câmera (720p 30 FPS)'}
           >
-            {currentUser?.isCameraOn ? <VideoOff size={16} /> : <Video size={16} />}
-            <span>{currentUser?.isCameraOn ? 'Desligar Câmera' : 'Câmera'}</span>
+            {localCameraTrack ? <VideoOff size={16} /> : <Video size={16} />}
+            <span>{localCameraTrack ? 'Desligar Câmera' : 'Câmera'}</span>
           </DeviceSplitButton>
 
           <button

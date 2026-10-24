@@ -140,6 +140,124 @@ class SoundEffectsManager {
     }
   }
 
+  // Som ao entrar em uma transmissão (whoosh subindo + acorde brilhante, estilo Discord)
+  playJoinStream() {
+    this.playStreamCue({
+      sweepFrom: 400,
+      sweepTo: 3200,
+      volume: 0.9,
+      // Mi5 e depois Si5, com um brilho uma oitava acima
+      notes: [
+        { freq: 659.25, start: 0.1, peak: 0.13 },
+        { freq: 987.77, start: 0.19, peak: 0.12 },
+        { freq: 1975.53, start: 0.19, peak: 0.03 }
+      ]
+    });
+  }
+
+  // Som ao sair de uma transmissão (espelho do de entrada: whoosh descendo + acorde caindo)
+  playLeaveStream() {
+    this.playStreamCue({
+      sweepFrom: 3200,
+      sweepTo: 400,
+      volume: 0.75,
+      // Si5 e depois Mi5
+      notes: [
+        { freq: 987.77, start: 0.06, peak: 0.12 },
+        { freq: 659.25, start: 0.15, peak: 0.13 }
+      ]
+    });
+  }
+
+  // Som quando alguém começa a transmitir (arpejo brilhante subindo: Dó -> Mi -> Sol -> Dó)
+  playStreamStarted() {
+    try {
+      const ctx = this.ensureContext();
+      const now = ctx.currentTime;
+
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, i) => {
+        const t = now + i * 0.075;
+        const last = i === notes.length - 1;
+        const decay = last ? 0.55 : 0.22;
+
+        // Triângulo dá o corpo, seno uma oitava acima dá o brilho de "sininho"
+        for (const [type, mult, peak] of [['triangle', 1, 0.12], ['sine', 2, 0.035]]) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq * mult, t);
+
+          gain.gain.setValueAtTime(0.001, t);
+          gain.gain.linearRampToValueAtTime(peak, t + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + decay);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + decay + 0.01);
+        }
+      });
+    } catch (e) {
+      console.warn('Erro ao tocar som de início de transmissão:', e);
+    }
+  }
+
+  // Whoosh de ruído filtrado seguido de notas curtas (base dos sons de transmissão)
+  playStreamCue({ sweepFrom, sweepTo, volume, notes }) {
+    try {
+      const ctx = this.ensureContext();
+      const now = ctx.currentTime;
+
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(volume, now);
+      master.connect(ctx.destination);
+
+      // Whoosh: ruído com o filtro varrendo de sweepFrom até sweepTo
+      const noiseLength = 0.22;
+      const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * noiseLength), ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.Q.value = 1.2;
+      filter.frequency.setValueAtTime(sweepFrom, now);
+      filter.frequency.exponentialRampToValueAtTime(sweepTo, now + noiseLength);
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.001, now);
+      noiseGain.gain.linearRampToValueAtTime(0.07, now + 0.12);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + noiseLength);
+
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(master);
+      noise.start(now);
+      noise.stop(now + noiseLength);
+
+      for (const { freq, start, peak } of notes) {
+        const t = now + start;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, t);
+
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(peak, t + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(t);
+        osc.stop(t + 0.46);
+      }
+    } catch (e) {
+      console.warn('Erro ao tocar som de transmissão:', e);
+    }
+  }
+
   // Som ao ensurdecer (Deafen)
   playDeafen() {
     this.playMute();

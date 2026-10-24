@@ -1,6 +1,6 @@
 {
-  "version": "1.5.6",
-  "releaseNotes": "New features: focus on card, enter/leave song and choose see screen share",
+  "version": "1.5.7",
+  "releaseNotes": "feat: sons de entrada/saida na transmissão e inicio de transmissao | resolve o bug da camera não desligar",
   "asarUrl": "/download/app.asar",
   "zipUrl": "/download/app.zip"
 }

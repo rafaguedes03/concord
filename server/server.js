@@ -68,6 +68,30 @@ let channels = [
 // socket.id -> { id, nickname, currentVoiceChannel, currentTextChannel, isMuted, isDeafened, isScreenSharing, avatarColor }
 const users = new Map();
 
+// Quem está assistindo cada transmissão (para o streamer ouvir quando alguém entra/sai)
+// socket.id de quem transmite -> Set(socket.id de quem assiste)
+const streamViewers = new Map();
+
+// Encerra a transmissão de alguém (sem tocar sons para o streamer)
+function endStream(sharerId) {
+  streamViewers.delete(sharerId);
+}
+
+// Tira o espectador de todas as transmissões que ele assistia e avisa os streamers
+function removeViewer(viewerId) {
+  for (const [sharerId, viewers] of streamViewers) {
+    if (viewers.delete(viewerId)) {
+      io.to(sharerId).emit("stream-viewer-changed", { viewerId, watching: false });
+    }
+  }
+}
+
+// Usuário saiu da call: fecha a transmissão dele e para de assistir as dos outros
+function leaveStreams(socketId) {
+  endStream(socketId);
+  removeViewer(socketId);
+}
+
 // Histórico de mensagens por canal de texto
 const messages = new Map();
 
@@ -356,6 +380,7 @@ io.on("connection", (socket) => {
     if (removedChannel.type === "voice") {
       for (const [userId, u] of users.entries()) {
         if (u.currentVoiceChannel === channelId) {
+          leaveStreams(u.id);
           u.currentVoiceChannel = null;
           u.isScreenSharing = false;
           u.isCameraOn = false;
@@ -389,6 +414,7 @@ io.on("connection", (socket) => {
 
     // Se já estava em outro canal, sai dele primeiro
     if (oldChannelId) {
+      leaveStreams(socket.id);
       socket.leave(oldChannelId);
       user.currentVoiceChannel = null;
       user.isScreenSharing = false;
@@ -482,6 +508,7 @@ io.on("connection", (socket) => {
     }
 
     const channelId = user.currentVoiceChannel;
+    leaveStreams(socket.id);
     socket.leave(channelId);
     user.currentVoiceChannel = null;
     user.isScreenSharing = false;
@@ -505,8 +532,10 @@ io.on("connection", (socket) => {
 
     if (typeof isMuted === "boolean") user.isMuted = isMuted;
     if (typeof isDeafened === "boolean") user.isDeafened = isDeafened;
-    if (typeof isScreenSharing === "boolean")
+    if (typeof isScreenSharing === "boolean") {
       user.isScreenSharing = isScreenSharing;
+      if (!isScreenSharing) endStream(socket.id);
+    }
     if (typeof isCameraOn === "boolean") user.isCameraOn = isCameraOn;
 
     // Se estiver no canal de voz, notifica a sala e todos
@@ -547,6 +576,7 @@ io.on("connection", (socket) => {
   // Parar Transmissão de Tela
   socket.on("stop-screen-share", ({ channelId }) => {
     const user = users.get(socket.id);
+    endStream(socket.id);
     if (user) {
       user.isScreenSharing = false;
       io.emit("user-updated", user);
@@ -557,6 +587,33 @@ io.on("connection", (socket) => {
         .to(targetChannel)
         .emit("screen-share-stopped", { userId: socket.id });
     }
+  });
+
+  // Espectador começou/parou de assistir uma transmissão: avisa quem transmite
+  socket.on("stream-watch", ({ sharerId, watching }) => {
+    const viewer = users.get(socket.id);
+    const sharer = users.get(sharerId);
+    if (!viewer || !sharer || sharerId === socket.id) return;
+
+    let viewers = streamViewers.get(sharerId);
+    if (watching) {
+      // Só conta quem está na mesma call e se a transmissão está ativa
+      if (!sharer.isScreenSharing || !viewer.currentVoiceChannel) return;
+      if (viewer.currentVoiceChannel !== sharer.currentVoiceChannel) return;
+      if (!viewers) {
+        viewers = new Set();
+        streamViewers.set(sharerId, viewers);
+      }
+      if (viewers.has(socket.id)) return;
+      viewers.add(socket.id);
+    } else if (!viewers || !viewers.delete(socket.id)) {
+      return;
+    }
+
+    io.to(sharerId).emit("stream-viewer-changed", {
+      viewerId: socket.id,
+      watching: !!watching,
+    });
   });
 
   // ==================== CHAT DE TEXTO ====================
@@ -617,6 +674,7 @@ io.on("connection", (socket) => {
     const user = users.get(socket.id);
     if (user) {
       console.log(`[-] Usuário desconectou: ${user.nickname} (${socket.id})`);
+      leaveStreams(socket.id);
       if (user.currentVoiceChannel) {
         socket.to(user.currentVoiceChannel).emit("user-left-voice-channel", {
           userId: socket.id,

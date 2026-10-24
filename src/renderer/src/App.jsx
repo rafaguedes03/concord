@@ -15,7 +15,7 @@ import { LivekitEngine, STREAM_PRESETS } from './services/livekitEngine';
 import { normalizeNoiseMode } from './services/voiceProcessor';
 import { soundEffects } from './services/soundEffects';
 
-const CURRENT_APP_VERSION = '1.5.6';
+const CURRENT_APP_VERSION = '1.5.7';
 
 // true só se a versão do servidor for mais nova que a instalada (evita oferecer downgrade)
 const isNewerVersion = (version) => {
@@ -415,7 +415,8 @@ export default function App() {
     socket.on('user-updated', (updatedUser) => {
       setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
       if (updatedUser.id === socket.id) {
-        setCurrentUser(updatedUser);
+        // A câmera local é a fonte da verdade (o servidor pode mandar um estado antigo)
+        setCurrentUser({ ...updatedUser, isCameraOn: !!livekitEngineRef.current.localCameraTrack });
       }
     });
 
@@ -475,6 +476,17 @@ export default function App() {
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, isScreenSharing: true, screenPreset: preset } : u))
       );
+      // Alguém da call começou a transmitir
+      if (currentVoiceChannelRef.current && userId !== socket.id) {
+        soundEffects.playStreamStarted();
+      }
+    });
+
+    // Alguém entrou/saiu da minha transmissão
+    socket.on('stream-viewer-changed', ({ watching }) => {
+      if (!currentUserRef.current?.isScreenSharing) return;
+      if (watching) soundEffects.playJoinStream();
+      else soundEffects.playLeaveStream();
     });
 
     socket.on('screen-share-stopped', ({ userId }) => {
@@ -743,6 +755,7 @@ export default function App() {
 
       setLocalScreenStream(stream);
       setCurrentUser((prev) => ({ ...prev, isScreenSharing: true, screenPreset: livekitEngine.currentPresetKey }));
+      soundEffects.playStreamStarted();
       setActiveView('call');
 
       const socket = socketService.getSocket();
@@ -765,8 +778,7 @@ export default function App() {
   // Marca a câmera própria como desligada (UI + servidor)
   const markCameraStopped = () => {
     setLocalCameraTrack(null);
-    if (!currentUserRef.current?.isCameraOn) return;
-    setCurrentUser((prev) => (prev ? { ...prev, isCameraOn: false } : prev));
+    setCurrentUser((prev) => (prev && prev.isCameraOn ? { ...prev, isCameraOn: false } : prev));
     const socket = socketService.getSocket();
     if (socket?.connected) {
       socket.emit('update-user-state', { isCameraOn: false });
@@ -778,13 +790,19 @@ export default function App() {
     if (!currentVoiceChannel || cameraBusyRef.current) return;
     const livekitEngine = livekitEngineRef.current;
 
-    if (currentUser?.isCameraOn) {
-      await livekitEngine.stopCamera();
-      markCameraStopped();
+    cameraBusyRef.current = true;
+
+    // Decide pelo estado real da track: o estado vindo do servidor pode estar defasado
+    if (livekitEngine.localCameraTrack) {
+      try {
+        await livekitEngine.stopCamera();
+      } finally {
+        markCameraStopped();
+        cameraBusyRef.current = false;
+      }
       return;
     }
 
-    cameraBusyRef.current = true;
     try {
       if (!livekitEngine.isConnected()) {
         throw new Error('a conexão de voz/vídeo (LiveKit) não está ativa');
