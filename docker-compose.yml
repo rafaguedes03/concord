@@ -8,6 +8,10 @@ services:
     restart: unless-stopped
     # Rede do host: o WebRTC (UDP 7882) funciona sem NAT extra do Docker
     network_mode: host
+    # Downloads (concord.exe, app.zip, app.asar, version.json) ficam fora da imagem:
+    # basta trocar os arquivos nessa pasta para publicar uma versão nova
+    volumes:
+      - /DATA/AppData/concord/server/public:/app/server/public
     environment:
       PORT: "3456"
       # IP do servidor na rede (ou IP público/domínio se amigos entrarem de fora)
