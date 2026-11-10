@@ -1,0 +1,21 @@
+services:
+  concord:
+    build: .
+    image: concord-server:latest
+    container_name: concord
+    restart: unless-stopped
+    # Rede do host: o WebRTC (UDP 7882) funciona sem NAT extra do Docker
+    network_mode: host
+    environment:
+      PORT: "3456"
+      # IP do servidor na rede (ou IP público/domínio se amigos entrarem de fora)
+      SERVER_URL: "192.168.15.8"
+      LIVEKIT_PORT: "7880"
+      LIVEKIT_TCP_PORT: "7881"
+      LIVEKIT_UDP_PORT: "7882"
+      LIVEKIT_NODE_IP: "192.168.15.8"
+      # Sinalização do LiveKit pelo Cloudflare Tunnel (livekit.fredsmusic.space -> localhost:7880)
+      LIVEKIT_URL: "wss://livekit.fredsmusic.space"
+      LIVEKIT_USE_EXTERNAL_IP: "false"
+      # Só IPv4 para mídia (o IPv6 do ZimaOS não aceita bind e derruba o LiveKit)
+      LIVEKIT_IPS_INCLUDE: "0.0.0.0/0"

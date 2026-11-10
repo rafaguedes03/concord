@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-electron
+build
+build-temp
+installer
+src
+scripts
+.git
+*.exe
+server/.env
+server/livekit.yaml
+server/bin/livekit-server*

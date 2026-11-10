@@ -702,6 +702,14 @@ function writeLiveKitConfig() {
   if (process.env.LIVEKIT_NODE_IP) {
     lines.push(`  node_ip: ${process.env.LIVEKIT_NODE_IP}`);
   }
+  // Opcional: limita os IPs locais usados para mídia (CIDRs separados por vírgula).
+  // Ex.: 0.0.0.0/0 usa só IPv4 — evita falha de bind em IPv6 indisponível (ZimaOS/Docker)
+  if (process.env.LIVEKIT_IPS_INCLUDE) {
+    lines.push("  ips:", "    includes:");
+    for (const cidr of process.env.LIVEKIT_IPS_INCLUDE.split(",")) {
+      if (cidr.trim()) lines.push(`      - ${JSON.stringify(cidr.trim())}`);
+    }
+  }
   lines.push(
     "keys:",
     `  ${JSON.stringify(LIVEKIT_API_KEY)}: ${JSON.stringify(LIVEKIT_API_SECRET)}`,
