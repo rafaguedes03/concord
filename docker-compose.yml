@@ -1,3 +1,5 @@
+name: concord
+
 services:
   concord:
     build: .
@@ -19,3 +21,24 @@ services:
       LIVEKIT_USE_EXTERNAL_IP: "false"
       # Só IPv4 para mídia (o IPv6 do ZimaOS não aceita bind e derruba o LiveKit)
       LIVEKIT_IPS_INCLUDE: "0.0.0.0/0"
+
+# Metadados para o ZimaOS/CasaOS mostrar o Concord como app na tela inicial
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: concord
+  author: Gustavo Amaro
+  developer: Gustavo Amaro
+  category: Chat
+  title:
+    en_us: Concord
+  tagline:
+    en_us: Servidor de voz, tela e chat do Concord
+  description:
+    en_us: Servidor do Concord (socket.io + LiveKit SFU) para chamadas de voz, transmissão de tela e chat.
+  icon: http://192.168.15.8:3456/download/icon.png
+  scheme: http
+  port_map: "3456"
+  index: /
+  store_app_id: concord
